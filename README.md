@@ -1,4 +1,4 @@
-# ContextualConv2d
+# ContextualConv
 
 **ContextualConv2d** is a custom PyTorch module that extends standard 2D convolution with support for **global context conditioning**. It mimics the behavior of `nn.Conv2d` using an **im2col + matrix multiplication** approach, while enabling **location-invariant conditioning** on an optional global context vector `c`.
 
