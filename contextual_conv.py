@@ -4,6 +4,123 @@ import torch.nn.functional as F
 from typing import Optional, Tuple, Union
 
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from typing import Optional, Tuple, Union
+
+
+class ContextualConv1d(nn.Module):
+    """
+    Custom 1D convolutional layer using unfold + matrix multiplication,
+    with optional global context vector injection at every temporal step.
+
+    Args:
+        in_channels (int): Number of input channels.
+        out_channels (int): Number of output channels.
+        kernel_size (int): Size of the 1D convolution kernel.
+        stride (int, optional): Stride of the convolution. Default: 1.
+        padding (int, optional): Zero-padding. Default: 0.
+        dilation (int, optional): Dilation rate. Default: 1.
+        groups (int, optional): Number of groups. Default: 1.
+        bias (bool, optional): Whether to include a learnable bias. Default: True.
+        c_dim (int, optional): Dimensionality of the optional global context vector. Default: None.
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        stride: int = 1,
+        padding: int = 0,
+        dilation: int = 1,
+        groups: int = 1,
+        bias: bool = True,
+        c_dim: Optional[int] = None,
+    ) -> None:
+        super().__init__()
+
+        if in_channels % groups != 0 or out_channels % groups != 0:
+            raise ValueError("in_channels and out_channels must be divisible by groups")
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+        self.dilation = dilation
+        self.groups = groups
+        self.c_dim = c_dim
+
+        self.group_in_channels = in_channels // groups
+        self.group_out_channels = out_channels // groups
+
+        self.weight = nn.Parameter(torch.randn(
+            out_channels, self.group_in_channels, kernel_size
+        ))
+        self.bias = nn.Parameter(torch.randn(out_channels)) if bias else None
+
+        self.c_weight = (
+            nn.Parameter(torch.randn(out_channels, c_dim)) if c_dim is not None else None
+        )
+
+    def forward(self, x: torch.Tensor, c: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Forward pass.
+
+        Args:
+            x (Tensor): Input tensor of shape (N, C_in, L).
+            c (Tensor, optional): Context tensor of shape (N, c_dim).
+
+        Returns:
+            Tensor: Output tensor of shape (N, C_out, L_out).
+        """
+        N, _, L = x.shape
+        k, s, p, d = self.kernel_size, self.stride, self.padding, self.dilation
+
+        # Apply padding
+        x_padded = F.pad(x, (p, p))
+
+        # Unfold: extract 1D patches
+        patches = x_padded.unfold(dimension=2, size=k, step=s)  # shape: (N, C_in, L_out, K)
+        L_out = patches.shape[2]
+        input_matrix = patches.permute(0, 2, 1, 3).reshape(N, L_out, -1)  # (N, L_out, C_in * K)
+
+        # If context is used, expand and concatenate
+        if self.c_dim is not None and c is not None:
+            if c.shape[-1] != self.c_dim:
+                raise ValueError(f"Expected c.shape[-1] = {self.c_dim}, got {c.shape[-1]}")
+            c_expanded = c.view(N, 1, self.c_dim).expand(N, L_out, self.c_dim)
+            input_matrix = torch.cat([input_matrix, c_expanded], dim=-1)
+
+        outputs = []
+
+        for g in range(self.groups):
+            # Group weight: (out_ch_per_group, in_ch_per_group, K)
+            weight_g = self.weight[
+                g * self.group_out_channels : (g + 1) * self.group_out_channels
+            ].reshape(self.group_out_channels, -1)  # (out_ch_per_group, in_ch_per_group * K)
+
+            if self.c_dim is not None and self.c_weight is not None:
+                c_weight_g = self.c_weight[
+                    g * self.group_out_channels : (g + 1) * self.group_out_channels
+                ]  # (out_ch_per_group, c_dim)
+                weight_g = torch.cat([weight_g, c_weight_g], dim=1)
+
+            # (N, L_out, out_ch_per_group)
+            output_g = torch.matmul(input_matrix, weight_g.T)
+            outputs.append(output_g)
+
+        # Concatenate group outputs: (N, L_out, out_channels)
+        out = torch.cat(outputs, dim=-1)
+
+        if self.bias is not None:
+            out += self.bias.view(1, 1, -1)
+
+        return out.permute(0, 2, 1)  # (N, out_channels, L_out)
+
+
 class ContextualConv2d(nn.Module):
     """
     A custom 2D convolutional layer using im2col with optional global context conditioning.
