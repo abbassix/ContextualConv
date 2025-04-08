@@ -1,24 +1,26 @@
 # ContextualConv
 
-**ContextualConv2d** is a custom PyTorch module that extends standard 2D convolution with support for **global context conditioning**. It mimics the behavior of `nn.Conv2d` using an **im2col + matrix multiplication** approach, while enabling **location-invariant conditioning** on an optional global context vector `c`.
+**ContextualConv** is a family of custom PyTorch convolutional layers (`ContextualConv1d`, `ContextualConv2d`, etc.) that extend standard convolutions with support for **global context conditioning**.
+
+Instead of using built-in convolution operators, these layers apply convolution via **im2col + matrix multiplication**, while enabling **location-invariant modulation** via an optional context vector `c`.
 
 ---
 
 ## 🔧 Features
 
-- ⚙️ Drop-in replacement for `nn.Conv2d` (with grouped conv support)
-- 🧠 Context-aware: injects global information into every spatial location
-- 🧱 Uses `unfold` (im2col) to explicitly compute convolution as matrix multiplication
-- 📦 Fully differentiable and compatible with autograd
+- ⚙️ Drop-in replacement for `nn.Conv1d` and `nn.Conv2d` (with grouped conv support)
+- 🧠 Context-aware: injects global information into every spatial or temporal location
+- 🧱 Uses `unfold` (im2col) to compute convolution explicitly via matrix multiplication
+- 📦 Fully differentiable and autograd-compatible
 
 ---
 
 ## 📦 Installation
 
-Just copy `contextual_conv.py` into your project directory and import:
+Copy `contextual_conv.py` into your project directory and import the required layer:
 
 ```python
-from contextual_conv import ContextualConv2d
+from contextual_conv import ContextualConv1d, ContextualConv2d
 ```
 
 No external dependencies beyond PyTorch.
@@ -26,6 +28,7 @@ No external dependencies beyond PyTorch.
 ---
 
 ## 🚀 Usage
+2D Example
 ```
 import torch
 from contextual_conv import ContextualConv2d
@@ -49,13 +52,37 @@ conv = ContextualConv2d(16, 32, kernel_size=3, padding=1)
 out = conv(x)  # works without `c`
 ```
 
+1D Example
+```
+from contextual_conv import ContextualConv1d
+
+conv1d = ContextualConv1d(
+    in_channels=16,
+    out_channels=32,
+    kernel_size=5,
+    padding=2,
+    c_dim=6
+)
+
+x = torch.randn(4, 16, 100)  # input time series
+c = torch.randn(4, 6)        # context vector
+
+out = conv1d(x, c)           # shape: (4, 32, 100)
+```
+
+You can omit the context vector `c` entirely if you don't need it:
+```
+conv = ContextualConv1d(16, 32, kernel_size=3, padding=1)
+out = conv(x)  # still works without context
+```
+
 ---
 
 ## 📐 Context Vector
 
 - The context tensor `c` can be of shape `(N, c_dim)` or `(N, 1, c_dim)`.
 
-- It is broadcasted over all spatial positions and concatenated to the local input patch at each location.
+- It is *broadcasted* over all spatial positions and concatenated to the local input patch at each location.
 
 - Learnable weights `c_weight` are applied to this context and used in the convolution computation.
 
@@ -63,13 +90,13 @@ out = conv(x)  # works without `c`
 
 ## 🔍 When to Use
 
-Use `ContextualConv2d` when you need:
+Use `ContextualConv` when you need:
 
-- Feature maps that are modulated by external signals (e.g., class labels, embeddings, latent vectors).
+- Feature maps influenced by external signals (e.g., class embeddings, latent codes).
 
-- Dynamic filtering or conditioning without spatial variation.
+- Global conditioning of convolutional outputs without spatial variation.
 
-- A custom convolutional layer you can fully inspect and modify.
+- Interpretable, customizable convolutional logic using explicit matrix ops.
 
 ---
 
@@ -81,22 +108,23 @@ GNU GPLv3 License
 
 ## 🤝 Contributing
 
-Feel free to open issues or pull requests! Contributions are welcome if you want to extend this to support depthwise convolutions, different padding strategies, or performance optimizations.
+Contributions are welcome! Feel free to:
 
+- Add support for ContextualConv3d
+
+- Improve speed via einsum or GPU-specific tricks
+
+- Add performance benchmarks or gradient checks
+
+Please open an issue or pull request.
 ---
 
 ## 🧪 Tests
 
-Unit tests are under development. You can validate basic functionality by comparing it with `nn.Conv2d` on toy data with context disabled.
+Unit tests are under development. You can validate basic functionality by comparing it with `nn.Conv1d`/`nn.Conv2d` on toy data with context disabled.
 
 ---
 
 ## 📫 Contact
 
 For questions or suggestions, open an issue or reach out via GitHub.
-
-
----
-
-Let me know if you'd like to add a diagram, benchmarks, or example notebooks to go with it!
-
