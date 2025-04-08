@@ -75,7 +75,7 @@ Use `ContextualConv2d` when you need:
 
 ## 📄 License
 
-MIT License
+GNU GPLv3 License
 
 ---
 
