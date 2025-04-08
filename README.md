@@ -1,39 +1,55 @@
 # ContextualConv
 
-**ContextualConv** is a family of custom PyTorch convolutional layers (`ContextualConv1d`, `ContextualConv2d`, etc.) that extend standard convolutions with support for **global context conditioning**.
+**ContextualConv** is a family of custom PyTorch convolutional layers (`ContextualConv1d`, `ContextualConv2d`) that support **global context conditioning**.
 
-Instead of using built-in convolution operators, these layers apply convolution via **im2col + matrix multiplication**, while enabling **location-invariant modulation** via an optional context vector `c`.
+These layers mimic standard PyTorch convolutions using **im2col + matrix multiplication**, while allowing a global context vector `c` to modulate the output at all spatial or temporal positions.
 
 ---
 
 ## 🔧 Features
 
-- ⚙️ Drop-in replacement for `nn.Conv1d` and `nn.Conv2d` (with grouped conv support)
-- 🧠 Context-aware: injects global information into every spatial or temporal location
-- 🧱 Uses `unfold` (im2col) to compute convolution explicitly via matrix multiplication
-- 📦 Fully differentiable and autograd-compatible
+- ⚙️ Drop-in replacement for `nn.Conv1d` and `nn.Conv2d`
+- 🧠 Context-aware: injects global information into every location
+- 🧱 Uses `unfold` (im2col) to compute convolution explicitly
+- 📦 Fully differentiable, supports grouped convolutions
 
 ---
 
 ## 📦 Installation
 
-Copy `contextual_conv.py` into your project directory and import the required layer:
+Clone the repo or copy `contextual_conv.py` into your project, then install dependencies:
 
-```python
-from contextual_conv import ContextualConv1d, ContextualConv2d
+```bash
+pip install -r requirements.txt
 ```
 
-No external dependencies beyond PyTorch.
+Then install the correct PyTorch version **for your system (CPU or CUDA)** by following the official instructions:
+
+🔗 https://pytorch.org/get-started/locally/
+
+Examples:
+
+- CPU-only:
+  ```bash
+  pip install torch --index-url https://download.pytorch.org/whl/cpu
+  ```
+
+- CUDA 11.8:
+  ```bash
+  pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+  ```
 
 ---
 
 ## 🚀 Usage
-2D Example
-```
+
+### 2D Example
+
+```python
 import torch
 from contextual_conv import ContextualConv2d
 
-conv = ContextualConv2d(
+conv2d = ContextualConv2d(
     in_channels=16,
     out_channels=32,
     kernel_size=3,
@@ -41,19 +57,15 @@ conv = ContextualConv2d(
     c_dim=10  # context dimensionality
 )
 
-x = torch.randn(8, 16, 32, 32)       # input image tensor
-c = torch.randn(8, 10)               # global context vector
+x = torch.randn(8, 16, 32, 32)
+c = torch.randn(8, 10)
 
-out = conv(x, c)  # shape: (8, 32, 32, 32)
-
-If you don’t need context, just omit it:
-
-conv = ContextualConv2d(16, 32, kernel_size=3, padding=1)
-out = conv(x)  # works without `c`
+out = conv2d(x, c)  # shape: (8, 32, 32, 32)
 ```
 
-1D Example
-```
+### 1D Example
+
+```python
 from contextual_conv import ContextualConv1d
 
 conv1d = ContextualConv1d(
@@ -64,39 +76,59 @@ conv1d = ContextualConv1d(
     c_dim=6
 )
 
-x = torch.randn(4, 16, 100)  # input time series
-c = torch.randn(4, 6)        # context vector
+x = torch.randn(4, 16, 100)
+c = torch.randn(4, 6)
 
-out = conv1d(x, c)           # shape: (4, 32, 100)
+out = conv1d(x, c)  # shape: (4, 32, 100)
 ```
 
-You can omit the context vector `c` entirely if you don't need it:
-```
-conv = ContextualConv1d(16, 32, kernel_size=3, padding=1)
-out = conv(x)  # still works without context
+### Without context
+
+```python
+conv = ContextualConv2d(16, 32, kernel_size=3, padding=1)
+out = conv(x)  # works even without `c`
 ```
 
 ---
 
 ## 📐 Context Vector
 
-- The context tensor `c` can be of shape `(N, c_dim)` or `(N, 1, c_dim)`.
-
-- It is *broadcasted* over all spatial positions and concatenated to the local input patch at each location.
-
-- Learnable weights `c_weight` are applied to this context and used in the convolution computation.
+- Shape: `(N, c_dim)` or `(N, 1, c_dim)`
+- Broadcasted to all positions (spatial or temporal)
+- Concatenated to each unfolded input patch
+- Modulated by learnable `c_weight` before being added to the convolution output
 
 ---
 
 ## 🔍 When to Use
 
-Use `ContextualConv` when you need:
+Use `ContextualConv` layers when:
 
-- Feature maps influenced by external signals (e.g., class embeddings, latent codes).
+- You want to inject external or global information into feature maps
+- You need interpretable and customizable convolution logic
+- You want context-aware dynamic filtering with no extra spatial modeling
 
-- Global conditioning of convolutional outputs without spatial variation.
+---
 
-- Interpretable, customizable convolutional logic using explicit matrix ops.
+## 🧪 Tests
+
+Unit tests are included in `tests/test_contextual_conv.py`.
+
+### ✅ To run the tests:
+
+```bash
+pip install -r requirements.txt
+pip install torch  # see installation instructions above
+pytest tests/
+```
+
+The tests compare `ContextualConv1d` and `ContextualConv2d` against standard PyTorch layers with context disabled, ensuring correctness.
+
+---
+
+## 🤖 GitHub Actions (CI)
+
+A GitHub Actions workflow in `.github/workflows/test.yml` automatically runs tests on push and pull requests using the CPU version of PyTorch.
 
 ---
 
@@ -108,35 +140,18 @@ GNU GPLv3 License
 
 ## 🤝 Contributing
 
-Contributions are welcome! Feel free to:
+Contributions welcome! You can:
 
-- Add support for ContextualConv3d
+- Add `ContextualConv3d` support
+- Improve performance (e.g., using `einsum`)
+- Write more advanced tests or benchmarks
+- Create useful networks that use these layers
 
-- Improve speed via einsum or GPU-specific tricks
-
-- Add performance benchmarks or gradient checks
-
-Please open an issue or pull request.
----
-
-## 🧪 Tests
-
-Unit tests are included in the tests/ directory. To verify the correctness of ContextualConv1d and ContextualConv2d, we compare their output against PyTorch’s built-in nn.Conv1d and nn.Conv2d using identical weights and no context.
-
-### ✅ Running the tests
-
-Make sure you have pytest installed:
-```
-pip install pytest
-```
-Then run the tests:
-```
-pytest tests/
-```
-This will execute the test cases defined in tests/test_contextual_conv.py and confirm that the custom layers behave as expected.
+Open a pull request or issue to get started.
 
 ---
 
 ## 📫 Contact
 
-For questions or suggestions, open an issue or reach out via GitHub.
+Questions or suggestions? Open an issue or reach out via GitHub.
+
