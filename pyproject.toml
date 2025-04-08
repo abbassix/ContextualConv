@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "contextual-conv"
+version = "0.1.0"
+description = "PyTorch convolutional layers with global context conditioning"
+authors = [
+    { name = "Mehdi Abbassi", email = "mehdi.n.abbassi@gmail.com" }
+]
+license = { text = "GPL-3.0-only" }
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [
+    "pytest"
+    # torch intentionally excluded (see README)
+]
+
+[project.urls]
+Homepage = "https://github.com/abbassix/ContextualConv"
