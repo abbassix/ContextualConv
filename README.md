@@ -121,7 +121,19 @@ Please open an issue or pull request.
 
 ## 🧪 Tests
 
-Unit tests are under development. You can validate basic functionality by comparing it with `nn.Conv1d`/`nn.Conv2d` on toy data with context disabled.
+Unit tests are included in the tests/ directory. To verify the correctness of ContextualConv1d and ContextualConv2d, we compare their output against PyTorch’s built-in nn.Conv1d and nn.Conv2d using identical weights and no context.
+
+### ✅ Running the tests
+
+Make sure you have pytest installed:
+```
+pip install pytest
+```
+Then run the tests:
+```
+pytest tests/
+```
+This will execute the test cases defined in tests/test_contextual_conv.py and confirm that the custom layers behave as expected.
 
 ---
 
