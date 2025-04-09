@@ -1,6 +1,8 @@
 [![PyPI version](https://img.shields.io/pypi/v/contextual-conv)](https://pypi.org/project/contextual-conv/)
 [![CI](https://github.com/abbassix/ContextualConv/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/abbassix/ContextualConv/actions/workflows/test.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Docs](https://readthedocs.org/projects/contextualconv/badge/?version=latest)](https://contextualconv.readthedocs.io/en/latest/)
+
 
 # ContextualConv
 
