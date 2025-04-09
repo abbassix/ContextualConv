@@ -22,6 +22,7 @@ extensions = [
   "sphinx.ext.autodoc",
   "sphinx.ext.napoleon",  # for Google/NumPy-style docstrings
   "myst_parser",          # for Markdown support
+  "sphinx.ext.graphviz",  # for architecture diagrams
 ]
 
 templates_path = ['_templates']
