@@ -6,7 +6,7 @@ This diagram shows how `ContextualConv2d` works internally.
 :caption: ContextualConv2d Architecture
 
 digraph ContextualConv2d {
-    rankdir=LR;
+    rankdir=TB;
     Input -> Unfold [label="im2col"];
     Unfold -> SliceGroups [label="split by group"];
     SliceGroups -> MatMul [label="grouped weights"];
