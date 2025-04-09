@@ -3,6 +3,9 @@
 This diagram shows how `ContextualConv2d` works internally.
 
 ```{graphviz}
+```{graphviz}
+:caption: ContextualConv2d Architecture
+
 digraph ContextualConv2d {
     rankdir=LR;
     Input -> Unfold [label="im2col"];
@@ -10,7 +13,7 @@ digraph ContextualConv2d {
     SliceGroups -> MatMul [label="grouped weights"];
     MatMul -> AddContext [label="(optional) + context"];
     AddContext -> BiasAdd [label="+ bias"];
-    BiasAdd -> Reshape [label="reshape to (N, C_out, H, W)"];
+    BiasAdd -> Reshape [label="(N, C_out, H, W)"];
 }
 ```
 
