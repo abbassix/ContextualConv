@@ -12,9 +12,12 @@ authors = [
 license = { text = "GPL-3.0-only" }
 readme = "README.md"
 requires-python = ">=3.7"
-dependencies = [
-    "pytest"
-    # torch intentionally excluded (see README)
+dependencies = []  # torch is not included to allow CPU/GPU flexibility
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "torch"  # Optional: safe in CI since we control the version
 ]
 
 [project.urls]
