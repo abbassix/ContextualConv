@@ -1,3 +1,5 @@
+[![PyPI version](https://img.shields.io/pypi/v/contextual-conv)](https://pypi.org/project/contextual-conv/)
+
 # ContextualConv
 
 **ContextualConv** is a family of custom PyTorch convolutional layers (`ContextualConv1d`, `ContextualConv2d`) that support **global context conditioning**.
