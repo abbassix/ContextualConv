@@ -1,0 +1,34 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# PyInstaller
+*.spec
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+contextual_conv.egg-info/
+
+# Test output
+htmlcov/
+.coverage
+.cache/
+.pytest_cache/
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
+# VS Code settings
+.vscode/
+
+# macOS metadata
+.DS_Store
+
