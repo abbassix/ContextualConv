@@ -3,7 +3,6 @@
 This diagram shows how `ContextualConv2d` works internally.
 
 ```{graphviz}
-```{graphviz}
 :caption: ContextualConv2d Architecture
 
 digraph ContextualConv2d {
