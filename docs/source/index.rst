@@ -5,6 +5,10 @@ Welcome to ContextualConv's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   usage
+   architecture
+   how-it-works
+   faq
    api
 
 Indices and tables
