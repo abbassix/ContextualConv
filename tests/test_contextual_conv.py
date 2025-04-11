@@ -5,6 +5,7 @@ from contextual_conv import ContextualConv1d, ContextualConv2d
 
 
 def copy_conv_weights(ref_layer: nn.Module, custom_layer: nn.Module) -> None:
+    """Safely copies weights and bias from a standard nn.Conv1d/2d to a custom contextual layer."""
     assert ref_layer.weight.shape == custom_layer.weight.shape, "Weight shape mismatch"
     custom_layer.weight.data.copy_(ref_layer.weight.data)
 
@@ -12,6 +13,8 @@ def copy_conv_weights(ref_layer: nn.Module, custom_layer: nn.Module) -> None:
         assert ref_layer.bias.shape == custom_layer.bias.shape, "Bias shape mismatch"
         custom_layer.bias.data.copy_(ref_layer.bias.data)
 
+
+# ---------- Conv2d Tests ----------
 
 @pytest.mark.parametrize("groups", [1, 2])
 def test_contextual_conv2d_no_context(groups):
@@ -28,6 +31,8 @@ def test_contextual_conv2d_no_context(groups):
     assert torch.allclose(out_ref, out_custom, atol=1e-6)
 
 
+# ---------- Conv1d Tests ----------
+
 @pytest.mark.parametrize("groups", [1, 2])
 def test_contextual_conv1d_no_context(groups):
     conv_ref = nn.Conv1d(4, 8, kernel_size=5, padding=2, groups=groups)
@@ -42,6 +47,8 @@ def test_contextual_conv1d_no_context(groups):
     assert out_ref.shape == out_custom.shape
     assert torch.allclose(out_ref, out_custom, atol=1e-6)
 
+
+# ---------- Context Enabled Tests ----------
 
 @pytest.mark.parametrize("conv_cls, input_shape, kernel_size", [
     (ContextualConv1d, (2, 4, 32), 3),
@@ -58,12 +65,13 @@ def test_contextual_conv_with_context(conv_cls, input_shape, kernel_size):
 
     out = conv(x, c)
 
-    # Basic shape check
     if len(input_shape) == 3:
         assert out.shape == (input_shape[0], out_channels, input_shape[2])
     elif len(input_shape) == 4:
         assert out.shape == (input_shape[0], out_channels, input_shape[2], input_shape[3])
 
+
+# ---------- Invalid Context Check ----------
 
 def test_invalid_context_dim():
     conv = ContextualConv2d(3, 6, kernel_size=3, padding=1, c_dim=5)
