@@ -1,9 +1,17 @@
-.. API Reference
-.. =============
+Contextual Layers
+-----------------
 
-.. .. automodule:: contextual_conv
-..    :members:
-..    :undoc-members:
-..    :show-inheritance:
+.. autoclass:: contextual_conv.ContextualConv1d
+   :members:
+   :undoc-members:
 
-h_dim (int, optional): If provided, the context vector `c` is passed through a shared MLP of shape (c_dim → h_dim → out_channels) before being added to the output.
+.. autoclass:: contextual_conv.ContextualConv2d
+   :members:
+   :undoc-members:
+
+Context Processor
+-----------------
+
+.. autoclass:: contextual_conv.ContextProcessor
+   :members:
+   :undoc-members:
