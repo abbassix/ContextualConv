@@ -10,57 +10,52 @@ import torch
 
 layer = ContextualConv1d(in_channels=4, out_channels=8, kernel_size=3, padding=1)
 x = torch.randn(2, 4, 32)
-out = layer(x)
+out = layer(x)  # shape: (2, 8, 32)
 ```
 
-## 🔧 2D Example with context
+## 🧠 1D Example with context (bias only)
+
+```python
+layer = ContextualConv1d(in_channels=4, out_channels=8, kernel_size=3, padding=1, context_dim=10)
+c = torch.randn(2, 10)
+out = layer(x, c)  # shape: (2, 8, 32)
+```
+
+## 🧠 1D with MLP for context
+
+```python
+layer = ContextualConv1d(
+    in_channels=4,
+    out_channels=8,
+    kernel_size=3,
+    padding=1,
+    context_dim=10,
+    h_dim=16
+)
+out = layer(x, c)
+```
+
+## 🖼️ 2D Example with context
 
 ```python
 from contextual_conv import ContextualConv2d
-import torch
 
-layer = ContextualConv2d(
+conv = ContextualConv2d(
     in_channels=3,
     out_channels=6,
     kernel_size=3,
     padding=1,
-    c_dim=10
+    context_dim=10,
+    h_dim=32
 )
 
-x = torch.randn(4, 3, 16, 16)
-c = torch.randn(4, 10)
-out = layer(x, c)
+x = torch.randn(2, 3, 16, 16)
+c = torch.randn(2, 10)
+out = conv(x, c)  # shape: (2, 6, 16, 16)
 ```
-
-## 🧠 Context with Hidden Layer (`h_dim`)
-
-You can specify `h_dim` to use a learnable MLP to process the context vector before it's added to the output.
-
-```python
-from contextual_conv import ContextualConv2d
-import torch
-
-conv = ContextualConv2d(
-    in_channels=3,
-    out_channels=12,
-    kernel_size=3,
-    padding=1,
-    c_dim=8,    # context dimension
-    h_dim=32    # hidden dimension for context MLP
-)
-
-x = torch.randn(4, 3, 16, 16)
-c = torch.randn(4, 8)
-out = conv(x, c)  # shape: (4, 12, 16, 16)
-```
-
-The context vector `c` is passed through an MLP:
-`c → Linear(c_dim → h_dim) → ReLU → Linear(h_dim → out_channels)`,
-and the result is added to the convolution output.
-
 
 ## ✅ Notes
 
-- Context vector `c` is broadcasted to all spatial/temporal locations.
-- Works like grouped `nn.Conv1d` and `nn.Conv2d`.
-- Use `groups > 1` for grouped convolution behavior.
+- If `context_dim` is set, the context vector `c` is passed through a linear layer or MLP.
+- The result is used as a **per-output-channel bias**, added uniformly across all locations.
+- You can disable the MLP by omitting `h_dim`.
