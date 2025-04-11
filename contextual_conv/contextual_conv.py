@@ -4,12 +4,24 @@ import torch.nn.functional as F
 from typing import Optional, Tuple, Union
 
 
-
 class ContextualConv1d(nn.Module):
     """
-    Custom 1D convolution layer with optional global context conditioning.
-    Uses unfold + matrix multiplication instead of nn.Conv1d.
+    Custom 1D convolutional layer using unfold + matrix multiplication,
+    with optional global context vector injection at every temporal step.
+
+    Args:
+        in_channels (int): Number of input channels.
+        out_channels (int): Number of output channels.
+        kernel_size (int): Size of the 1D convolution kernel.
+        stride (int, optional): Stride of the convolution. Default: 1.
+        padding (int, optional): Zero-padding. Default: 0.
+        dilation (int, optional): Dilation rate. Default: 1.
+        groups (int, optional): Number of groups. Default: 1.
+        bias (bool, optional): Whether to include a learnable bias. Default: True.
+        c_dim (int, optional): Dimensionality of the optional global context vector.
+        h_dim (int, optional): If provided, use MLP instead of direct projection for context.
     """
+
     def __init__(
         self,
         in_channels: int,
@@ -24,6 +36,7 @@ class ContextualConv1d(nn.Module):
         h_dim: Optional[int] = None,
     ):
         super().__init__()
+
         if in_channels % groups != 0 or out_channels % groups != 0:
             raise ValueError("in_channels and out_channels must be divisible by groups")
 
@@ -58,6 +71,16 @@ class ContextualConv1d(nn.Module):
             self.c_weight = None
 
     def forward(self, x: torch.Tensor, c: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Forward pass.
+
+        Args:
+            x (Tensor): Input tensor of shape (N, C_in, L).
+            c (Tensor, optional): Context tensor of shape (N, c_dim).
+
+        Returns:
+            Tensor: Output tensor of shape (N, C_out, L_out).
+        """
         N, _, L = x.shape
         k, s, p, d = self.kernel_size, self.stride, self.padding, self.dilation
 
@@ -73,7 +96,7 @@ class ContextualConv1d(nn.Module):
             if c.shape[-1] != self.c_dim:
                 raise ValueError(f"Expected c.shape[-1] = {self.c_dim}, got {c.shape[-1]}")
             if self.context_mlp is not None:
-                context_output = self.context_mlp(c)  # (N, out_channels)
+                context_output = self.context_mlp(c)
 
         for g in range(self.groups):
             weight_g = self.weight[
@@ -93,10 +116,9 @@ class ContextualConv1d(nn.Module):
                     c_weight_g = self.c_weight[
                         g * self.group_out_channels : (g + 1) * self.group_out_channels
                     ]
-                    c_proj = c @ c_weight_g.T  # (N, out_ch_per_group)
-                    c_expanded = c_proj.unsqueeze(1).expand(N, L_out, -1)
-                    weight_g = torch.cat([weight_g, c_weight_g], dim=1)
+                    c_expanded = c.unsqueeze(1).expand(N, L_out, self.c_dim)
                     input_group = torch.cat([input_group, c_expanded], dim=-1)
+                    weight_g = torch.cat([weight_g, c_weight_g], dim=1)
                     output_g = torch.matmul(input_group, weight_g.T)
             else:
                 output_g = torch.matmul(input_group, weight_g.T)
@@ -107,7 +129,7 @@ class ContextualConv1d(nn.Module):
         if self.bias is not None:
             out += self.bias.view(1, 1, -1)
 
-        return out.permute(0, 2, 1)  # (N, out_channels, L_out)
+        return out.permute(0, 2, 1)
 
 
 class ContextualConv2d(nn.Module):
@@ -129,6 +151,7 @@ class ContextualConv2d(nn.Module):
         c_dim (int, optional): Dimensionality of the global context vector.
         h_dim (int, optional): Hidden dimension for processing context via shared MLP.
     """
+
     def __init__(
         self,
         in_channels: int,
@@ -183,6 +206,16 @@ class ContextualConv2d(nn.Module):
             self.c_weight = None
 
     def forward(self, x: torch.Tensor, c: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Forward pass.
+
+        Args:
+            x (Tensor): Input tensor of shape (N, C_in, H, W).
+            c (Tensor, optional): Context tensor of shape (N, c_dim).
+
+        Returns:
+            Tensor: Output tensor of shape (N, C_out, H_out, W_out).
+        """
         N, _, H, W = x.shape
         kh, kw = self.kernel_size
         sh, sw = self.stride
@@ -206,7 +239,7 @@ class ContextualConv2d(nn.Module):
             if c.shape[-1] != self.c_dim:
                 raise ValueError(f"Expected c.shape[-1] = {self.c_dim}, got {c.shape[-1]}")
             if self.context_mlp is not None:
-                context_output = self.context_mlp(c)  # shape: (N, out_channels)
+                context_output = self.context_mlp(c)
 
         for g in range(self.groups):
             weight_g = self.weight[
@@ -226,10 +259,9 @@ class ContextualConv2d(nn.Module):
                     c_weight_g = self.c_weight[
                         g * self.group_out_channels : (g + 1) * self.group_out_channels
                     ]
-                    c_proj = c @ c_weight_g.T
-                    c_expanded = c_proj.unsqueeze(1).expand(N, out_h * out_w, -1)
-                    weight_g = torch.cat([weight_g, c_weight_g], dim=1)
+                    c_expanded = c.unsqueeze(1).expand(N, out_h * out_w, self.c_dim)
                     input_group = torch.cat([input_group, c_expanded], dim=-1)
+                    weight_g = torch.cat([weight_g, c_weight_g], dim=1)
                     output_g = torch.matmul(input_group, weight_g.T)
             else:
                 output_g = torch.matmul(input_group, weight_g.T)
