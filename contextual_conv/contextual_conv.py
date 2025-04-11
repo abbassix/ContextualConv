@@ -21,9 +21,10 @@ class ContextualConv1d(nn.Module):
         groups: int = 1,
         bias: bool = True,
         c_dim: Optional[int] = None,
+        h_dim: Optional[int] = None,
     ):
         super().__init__()
-
+        
         if in_channels % groups != 0 or out_channels % groups != 0:
             raise ValueError("in_channels and out_channels must be divisible by groups")
 
@@ -35,28 +36,45 @@ class ContextualConv1d(nn.Module):
         self.dilation = dilation
         self.groups = groups
         self.c_dim = c_dim
+        self.h_dim = h_dim
 
         self.group_in_channels = in_channels // groups
         self.group_out_channels = out_channels // groups
 
-        self.weight = nn.Parameter(torch.randn(
-            out_channels, self.group_in_channels, kernel_size
-        ))
+        self.weight = nn.Parameter(torch.randn(out_channels, self.group_in_channels, kernel_size))
         self.bias = nn.Parameter(torch.randn(out_channels)) if bias else None
-        self.c_weight = (
-            nn.Parameter(torch.randn(out_channels, c_dim)) if c_dim is not None else None
-        )
+
+        if c_dim is not None and h_dim is not None:
+            self.context_mlp = nn.Sequential(
+                nn.Linear(c_dim, h_dim),
+                nn.ReLU(),
+                nn.Linear(h_dim, out_channels)
+            )
+            self.c_weight = None
+        elif c_dim is not None:
+            self.context_mlp = None
+            self.c_weight = nn.Parameter(torch.randn(out_channels, c_dim))
+        else:
+            self.context_mlp = None
+            self.c_weight = None
 
     def forward(self, x: torch.Tensor, c: Optional[torch.Tensor] = None) -> torch.Tensor:
         N, _, L = x.shape
         k, s, p, d = self.kernel_size, self.stride, self.padding, self.dilation
 
         x_padded = F.pad(x, (p, p))
-        patches = x_padded.unfold(dimension=2, size=k, step=s)  # (N, C_in, L_out, K)
+        patches = x_padded.unfold(2, size=k, step=s)  # (N, C_in, L_out, K)
         L_out = patches.shape[2]
-        unfolded = patches.permute(0, 2, 1, 3).reshape(N, L_out, -1)  # (N, L_out, C_in * K)
+        unfolded = patches.permute(0, 2, 1, 3).reshape(N, L_out, -1)
 
         outputs = []
+
+        context_output = None
+        if self.c_dim is not None and c is not None:
+            if c.shape[-1] != self.c_dim:
+                raise ValueError(f"Expected c.shape[-1] = {self.c_dim}, got {c.shape[-1]}")
+            if self.context_mlp is not None:
+                context_output = self.context_mlp(c)  # shape (N, out_channels)
 
         for g in range(self.groups):
             weight_g = self.weight[
@@ -68,14 +86,19 @@ class ContextualConv1d(nn.Module):
             input_group = unfolded[:, :, start:end]
 
             if self.c_dim is not None and c is not None:
-                if c.shape[-1] != self.c_dim:
-                    raise ValueError(f"Expected c.shape[-1] = {self.c_dim}, got {c.shape[-1]}")
-                c_expanded = c.view(N, 1, self.c_dim).expand(N, L_out, self.c_dim)
-                c_weight_g = self.c_weight[
-                    g * self.group_out_channels : (g + 1) * self.group_out_channels
-                ]
-                weight_g = torch.cat([weight_g, c_weight_g], dim=1)
+                if self.context_mlp is not None:
+                    c_slice = context_output[:, g * self.group_out_channels : (g + 1) * self.group_out_channels]
+                    c_expanded = c_slice.unsqueeze(1).expand(-1, L_out, -1)
+                else:
+                    c_weight_g = self.c_weight[
+                        g * self.group_out_channels : (g + 1) * self.group_out_channels
+                    ]
+                    c_expanded = c @ c_weight_g.T  # (N, out_ch_per_group)
+                    c_expanded = c_expanded.unsqueeze(1).expand(-1, L_out, -1)
+
                 input_group = torch.cat([input_group, c_expanded], dim=-1)
+                if self.context_mlp is None:
+                    weight_g = torch.cat([weight_g, c_weight_g], dim=1)
 
             output_g = torch.matmul(input_group, weight_g.T)
             outputs.append(output_g)
@@ -84,13 +107,27 @@ class ContextualConv1d(nn.Module):
         if self.bias is not None:
             out += self.bias.view(1, 1, -1)
 
-        return out.permute(0, 2, 1)  # (N, out_channels, L_out)
+        return out.permute(0, 2, 1)
 
 
 class ContextualConv2d(nn.Module):
     """
-    Custom 2D convolution layer with optional global context conditioning.
-    Uses im2col (unfold) + matrix multiplication instead of nn.Conv2d.
+    A custom 2D convolutional layer using im2col with optional global context conditioning.
+
+    Supports direct projection or a shared MLP (`h_dim`) to process the context vector.
+
+    Args:
+        in_channels (int): Number of input channels.
+        out_channels (int): Number of output channels.
+        kernel_size (int or Tuple[int, int])
+        stride (int or Tuple[int, int])
+        padding (int or Tuple[int, int])
+        dilation (int or Tuple[int, int])
+        groups (int): Number of groups.
+        padding_mode (str): Padding mode ('zeros', 'reflect', etc.)
+        bias (bool): If True, includes a learnable bias.
+        c_dim (int, optional): Dimensionality of the global context vector.
+        h_dim (int, optional): Hidden dimension for processing context via shared MLP.
     """
 
     def __init__(
@@ -105,6 +142,7 @@ class ContextualConv2d(nn.Module):
         padding_mode: str = 'zeros',
         bias: bool = True,
         c_dim: Optional[int] = None,
+        h_dim: Optional[int] = None,
     ):
         super().__init__()
 
@@ -118,6 +156,7 @@ class ContextualConv2d(nn.Module):
         self.groups = groups
         self.padding_mode = padding_mode
         self.c_dim = c_dim
+        self.h_dim = h_dim
 
         if in_channels % groups != 0 or out_channels % groups != 0:
             raise ValueError("in_channels and out_channels must be divisible by groups")
@@ -129,9 +168,20 @@ class ContextualConv2d(nn.Module):
             out_channels, self.group_in_channels, *self.kernel_size
         ))
         self.bias = nn.Parameter(torch.randn(out_channels)) if bias else None
-        self.c_weight = (
-            nn.Parameter(torch.randn(out_channels, c_dim)) if c_dim is not None else None
-        )
+
+        if c_dim is not None and h_dim is not None:
+            self.context_mlp = nn.Sequential(
+                nn.Linear(c_dim, h_dim),
+                nn.ReLU(),
+                nn.Linear(h_dim, out_channels)
+            )
+            self.c_weight = None
+        elif c_dim is not None:
+            self.context_mlp = None
+            self.c_weight = nn.Parameter(torch.randn(out_channels, c_dim))
+        else:
+            self.context_mlp = None
+            self.c_weight = None
 
     def forward(self, x: torch.Tensor, c: Optional[torch.Tensor] = None) -> torch.Tensor:
         N, _, H, W = x.shape
@@ -140,18 +190,26 @@ class ContextualConv2d(nn.Module):
         ph, pw = self.padding
         dh, dw = self.dilation
 
+        # Padding
         if self.padding_mode == 'zeros':
             x_padded = F.pad(x, (pw, pw, ph, ph), mode='constant', value=0)
         else:
             x_padded = F.pad(x, (pw, pw, ph, ph), mode=self.padding_mode)
 
+        # Unfold
         patches = x_padded.unfold(2, kh, sh).unfold(3, kw, sw)
-        patches = patches[..., ::dh, ::dw]
-
+        patches = patches[..., ::dh, ::dw]  # apply dilation
         out_h, out_w = patches.shape[2], patches.shape[3]
         unfolded = patches.permute(0, 2, 3, 1, 4, 5).reshape(N, out_h * out_w, -1)
 
         outputs = []
+
+        context_output = None
+        if self.c_dim is not None and c is not None:
+            if c.shape[-1] != self.c_dim:
+                raise ValueError(f"Expected c.shape[-1] = {self.c_dim}, got {c.shape[-1]}")
+            if self.context_mlp is not None:
+                context_output = self.context_mlp(c)  # shape: (N, out_channels)
 
         for g in range(self.groups):
             weight_g = self.weight[
@@ -163,13 +221,17 @@ class ContextualConv2d(nn.Module):
             input_group = unfolded[:, :, start:end]
 
             if self.c_dim is not None and c is not None:
-                if c.shape[-1] != self.c_dim:
-                    raise ValueError(f"Expected c.shape[-1] = {self.c_dim}, got {c.shape[-1]}")
-                c_expanded = c.view(N, 1, self.c_dim).expand(N, out_h * out_w, self.c_dim)
-                c_weight_g = self.c_weight[
-                    g * self.group_out_channels : (g + 1) * self.group_out_channels
-                ]
-                weight_g = torch.cat([weight_g, c_weight_g], dim=1)
+                if self.context_mlp is not None:
+                    c_slice = context_output[:, g * self.group_out_channels : (g + 1) * self.group_out_channels]
+                    c_expanded = c_slice.unsqueeze(1).expand(N, out_h * out_w, -1)
+                else:
+                    c_weight_g = self.c_weight[
+                        g * self.group_out_channels : (g + 1) * self.group_out_channels
+                    ]
+                    c_expanded = c @ c_weight_g.T  # (N, out_ch_per_group)
+                    c_expanded = c_expanded.unsqueeze(1).expand(N, out_h * out_w, -1)
+                    weight_g = torch.cat([weight_g, c_weight_g], dim=1)
+
                 input_group = torch.cat([input_group, c_expanded], dim=-1)
 
             output_g = torch.matmul(input_group, weight_g.T)
