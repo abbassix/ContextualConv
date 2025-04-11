@@ -48,6 +48,23 @@ def test_contextual_conv1d_no_context(groups):
     assert torch.allclose(out_ref, out_custom, atol=1e-6)
 
 
+# ---------- Depthwise Tests ----------
+
+def test_contextual_conv2d_depthwise():
+    in_out = 4  # in_channels = out_channels
+    conv_ref = nn.Conv2d(in_out, in_out, kernel_size=3, padding=1, groups=in_out)
+    conv_custom = ContextualConv2d(in_out, in_out, kernel_size=3, padding=1, groups=in_out)
+
+    copy_conv_weights(conv_ref, conv_custom)
+
+    x = torch.randn(2, in_out, 16, 16)
+    out_ref = conv_ref(x)
+    out_custom = conv_custom(x)
+
+    assert out_ref.shape == out_custom.shape
+    assert torch.allclose(out_ref, out_custom, atol=1e-6)
+
+
 # ---------- Context Enabled Tests ----------
 
 @pytest.mark.parametrize("conv_cls, input_shape, kernel_size", [
