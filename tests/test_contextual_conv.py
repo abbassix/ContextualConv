@@ -97,3 +97,59 @@ def test_invalid_context_dim():
 
     with pytest.raises(ValueError):
         _ = conv(x, c)
+
+
+# ---------- 1D with MLP-based context ----------
+
+def test_contextual_conv1d_with_mlp():
+    c_dim = 5
+    h_dim = 16
+    conv = ContextualConv1d(
+        in_channels=4,
+        out_channels=8,
+        kernel_size=3,
+        padding=1,
+        c_dim=c_dim,
+        h_dim=h_dim
+    )
+
+    x = torch.randn(2, 4, 32, requires_grad=True)
+    c = torch.randn(2, c_dim, requires_grad=True)
+
+    out = conv(x, c)
+
+    assert out.shape == (2, 8, 32)
+
+    # Check backward pass
+    loss = out.sum()
+    loss.backward()
+    assert x.grad is not None
+    assert c.grad is not None
+
+
+# ---------- 2D with MLP-based context ----------
+
+def test_contextual_conv2d_with_mlp():
+    c_dim = 6
+    h_dim = 32
+    conv = ContextualConv2d(
+        in_channels=3,
+        out_channels=9,
+        kernel_size=3,
+        padding=1,
+        c_dim=c_dim,
+        h_dim=h_dim
+    )
+
+    x = torch.randn(4, 3, 16, 16, requires_grad=True)
+    c = torch.randn(4, c_dim, requires_grad=True)
+
+    out = conv(x, c)
+
+    assert out.shape == (4, 9, 16, 16)
+
+    # Check backward pass
+    loss = out.mean()
+    loss.backward()
+    assert x.grad is not None
+    assert c.grad is not None

@@ -21,3 +21,7 @@ Yes! Just set `groups > 1`, and the layer will split the input/output channels p
 ### ❓ Can it be used for dynamic filtering?
 
 Yes. You can use the context vector to modulate the output dynamically, like attention or class conditioning.
+
+### ❓ What is `h_dim` used for?
+
+When `h_dim` is specified, the context vector `c` is passed through a small MLP (shared across groups). This allows more expressive conditioning than a single linear layer.
