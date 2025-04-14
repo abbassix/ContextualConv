@@ -23,13 +23,17 @@ These layers behave like standard PyTorch `nn.Conv1d` and `nn.Conv2d`, but allow
 
 ## 📦 Installation
 
-Clone the repo or copy `contextual_conv.py` into your project, then:
+Install from PyPI:
+```bash
+pip install contextual-conv
+```
 
+To use it from source (e.g. for development), clone the repo and run:
 ```bash
 pip install -r requirements.txt
 ```
 
-To install PyTorch, follow the official guide:
+You also need to install the appropriate version of **PyTorch** for your system:
 https://pytorch.org/get-started/locally/
 
 Example (CPU only):
