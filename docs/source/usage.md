@@ -35,6 +35,26 @@ layer = ContextualConv1d(
 out = layer(x, c)
 ```
 
+## 🧠 Multi-layer MLP for context
+
+You can pass a list to `h_dim` to define multiple hidden layers:
+
+```python
+layer = ContextualConv1d(
+    in_channels=4,
+    out_channels=8,
+    kernel_size=3,
+    padding=1,
+    context_dim=10,
+    h_dim=[32, 64, 16]  # three-layer MLP
+)
+```
+
+This creates the following context path:
+
+`context_dim → 32 → ReLU → 64 → ReLU → 16 → ReLU → out_channels`
+
+
 ## 🖼️ 2D Example with context
 
 ```python
