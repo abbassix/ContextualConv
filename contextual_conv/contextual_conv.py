@@ -6,26 +6,36 @@ from typing import Optional
 class ContextProcessor(nn.Module):
     """
     Processes the context vector into a per-channel bias.
-    Uses a single linear layer or a small MLP depending on `h_dim`.
+    Supports single Linear layer, shallow MLP (int), or multi-layer MLP (list of ints).
     """
 
-    def __init__(self, context_dim: int, out_channels: int, h_dim: Optional[int] = None):
+    def __init__(self, context_dim: int, out_channels: int, h_dim: Optional[Union[int, List[int]]] = None):
         super().__init__()
+
+        layers = []
+        in_dim = context_dim
+
         if h_dim is None or h_dim == 0:
-            self.processor = nn.Linear(context_dim, out_channels)
+            # Simple projection
+            layers.append(nn.Linear(in_dim, out_channels))
         else:
-            self.processor = nn.Sequential(
-                nn.Linear(context_dim, h_dim),
-                nn.ReLU(inplace=True),
-                nn.Linear(h_dim, out_channels)
-            )
+            # Multi-layer MLP: normalize to list
+            if isinstance(h_dim, int):
+                h_dim = [h_dim]
+            for hidden_dim in h_dim:
+                layers.append(nn.Linear(in_dim, hidden_dim))
+                layers.append(nn.ReLU(inplace=True))
+                in_dim = hidden_dim
+            layers.append(nn.Linear(in_dim, out_channels))
+
+        self.processor = nn.Sequential(*layers)
 
     def forward(self, c: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            c: Context vector of shape (B, context_dim)
+            c (Tensor): Context vector of shape (B, context_dim)
         Returns:
-            Output tensor of shape (B, out_channels)
+            Tensor: Bias of shape (B, out_channels)
         """
         return self.processor(c)
 
