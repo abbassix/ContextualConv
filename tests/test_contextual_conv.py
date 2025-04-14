@@ -68,3 +68,30 @@ def test_context_shape_mismatch():
     c = torch.randn(2, 5)  # wrong context dim
     with pytest.raises(RuntimeError):
         _ = model(x, c)
+
+
+# ----- Multi-layer MLP Tests -----
+
+def test_contextual_conv2d_multi_layer_mlp():
+    model = ContextualConv2d(
+        in_channels=3,
+        out_channels=10,
+        kernel_size=3,
+        padding=1,
+        context_dim=8,
+        h_dim=[32, 64, 16]
+    )
+
+    x = torch.randn(2, 3, 16, 16, requires_grad=True)
+    c = torch.randn(2, 8, requires_grad=True)
+
+    out = model(x, c)
+
+    assert out.shape == (2, 10, 16, 16)
+
+    # Test backward
+    loss = out.mean()
+    loss.backward()
+
+    assert x.grad is not None
+    assert c.grad is not None
