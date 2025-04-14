@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from typing import Optional
+from typing import Optional, Union, List
 
 
 class ContextProcessor(nn.Module):
