@@ -11,15 +11,20 @@
    - It is passed through a shared `ContextProcessor` module:
      - If `h_dim` is not set: just a `Linear(context_dim → out_channels)`
      - If `h_dim` is set: an MLP `Linear → ReLU → Linear`
-   - The result is a bias of shape `(B, out_channels)`
-   - This bias is broadcast over the output and **added as a per-channel bias**
+     - If both scale and bias are used: output is `2 * out_channels` and split into γ and β
+   - The result is a scale (`γ`) and/or bias (`β`) of shape `(B, out_channels)`
+   - These parameters are broadcast and applied to the conv output:
+
+```python
+y = γ(c) * conv(x) + β(c)
+```
 
 ## 🧩 Architecture (1D/2D)
 
 ```python
 x → Conv1d/2d → y
-c → ContextProcessor → bias
-y + bias → final output
+c → ContextProcessor → γ, β
+y → γ * y + β → final output
 ```
 
 ## ✅ Notes
