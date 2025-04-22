@@ -1,113 +1,91 @@
+# ContextualConv  
+
 [![PyPI version](https://img.shields.io/pypi/v/contextual-conv)](https://pypi.org/project/contextual-conv/)
 [![CI](https://github.com/abbassix/ContextualConv/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/abbassix/ContextualConv/actions/workflows/test.yml)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Docs](https://readthedocs.org/projects/contextualconv/badge/?version=latest)](https://contextualconv.readthedocs.io/en/latest/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-# ContextualConv
-
-**ContextualConv** is a family of custom PyTorch convolutional layers (`ContextualConv1d`, `ContextualConv2d`) that support **global context conditioning**.
-
-These layers behave like standard PyTorch `nn.Conv1d` and `nn.Conv2d`, but allow a global vector `c` to inject **per-channel bias** into the output, modulating it with contextual information (e.g., class embeddings, latent vectors, etc.).
+> **ContextualConv** – PyTorch convolutional layers with **global context conditioning**: per‑channel **bias**, **scale**, or **FiLM‑style** *scale + bias*.
 
 ---
 
-## 🔧 Features
-
-- ⚙️ Drop-in replacement for `nn.Conv1d` and `nn.Conv2d`
-- 🧠 Context-aware: injects global vector as output bias
-- 🧱 Based on standard PyTorch convolution
-- 🧠 Optional hidden layer (`h_dim`) for MLP processing of `c`
-- 📦 Fully differentiable and unit-tested
-
----
-
-## 📦 Installation
-
-Install from PyPI:
-```bash
-pip install contextual-conv
-```
-
-To use it from source (e.g. for development), clone the repo and run:
-```bash
-pip install -r requirements.txt
-```
-
-You also need to install the appropriate version of **PyTorch** for your system:
-https://pytorch.org/get-started/locally/
-
-Example (CPU only):
-
-```bash
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-```
-
----
-
-## 🚀 Usage
-
-### 2D Example (with context and MLP)
+## 🚀 Quick start
 
 ```python
 from contextual_conv import ContextualConv2d
 import torch
 
+# FiLM‑style (scale + bias)
 conv = ContextualConv2d(
     in_channels=16,
     out_channels=32,
     kernel_size=3,
     padding=1,
-    context_dim=10,
-    h_dim=64
+    context_dim=10,   # size of global vector c
+    h_dim=64,         # optional MLP hidden dim
+    use_scale=True,   # γ(c)
+    use_bias=True     # β(c)
 )
 
-x = torch.randn(8, 16, 32, 32)
-c = torch.randn(8, 10)
+x = torch.randn(8, 16, 32, 32)  # feature map
+c = torch.randn(8, 10)          # context vector
 
 out = conv(x, c)  # shape: (8, 32, 32, 32)
 ```
 
-### 1D Example (linear context projection)
+### Modes at a glance
+| `use_scale` | `use_bias` | Behaviour |
+|-------------|-----------|-----------|
+| `False`     | `True`    | **Contextual bias** (original behaviour) |
+| `True`      | `False`   | **Per‑channel scale** only |
+| `True`      | `True`    | **FiLM** – scale **and** bias |
 
-```python
-from contextual_conv import ContextualConv1d
+If *both* flags are `False`, the constructor raises `ValueError`.
 
-conv = ContextualConv1d(
-    in_channels=16,
-    out_channels=32,
-    kernel_size=5,
-    padding=2,
-    context_dim=6
-)
+---
 
-x = torch.randn(4, 16, 100)
-c = torch.randn(4, 6)
+## 🔧 Key features
 
-out = conv(x, c)  # shape: (4, 32, 100)
+* ⚙️ **Drop‑in replacement** for `nn.Conv1d` / `nn.Conv2d`  
+  → Same arguments + optional context options.
+* 🧠 **Global vector conditioning** via learnable γ(c) and/or β(c).
+* 🪶 **Lightweight** – one small MLP (or single `Linear`) per layer.
+* 🧑‍🔬 **FiLM ready** – reproduce Feature‑wise Linear Modulation with two lines.
+* 🧩 **Modular** – combine with any architecture, works on CPU / GPU.
+* ✅ **Unit‑tested** and documented.
+
+---
+
+## 📦 Installation
+
+```bash
+pip install contextual-conv  # coming soon: v0.3.0
 ```
 
-### Without context
+Or install from source:
 
-```python
-conv = ContextualConv2d(16, 32, kernel_size=3, padding=1)
-out = conv(x)  # standard conv2d
+```bash
+git clone https://github.com/abbassix/ContextualConv.git
+cd ContextualConv
+pip install -e .[dev]
 ```
 
 ---
 
-## 📐 Context Vector
+## 📐 Context vector details
 
-- Shape: `(B, context_dim)`
-- Passed through a `ContextProcessor` (either `Linear` or `MLP`)
-- Output shape: `(B, out_channels)` → added as a bias to the output
+* Shape: **`(B, context_dim)`**  
+  (one global descriptor per sample – class label embedding, latent code, etc.)
+* Processed by a **`ContextProcessor`**:
+  * `Linear(context_dim, out_dim)` *(bias‑only / scale‑only)*
+  * Small **MLP** if `h_dim` is set.
+* Output dims:
+  * `out_channels` → bias **or** scale
+  * `2 × out_channels` → FiLM (scale + bias)
 
 ---
 
-## 🧪 Tests
-
-All tests live in `tests/test_contextual_conv.py`.
-
-Run them with:
+## 🧪 Running tests
 
 ```bash
 pytest tests/
@@ -115,34 +93,19 @@ pytest tests/
 
 ---
 
-## 📘 Documentation
+## 📘 Documentation
 
-Full documentation is available at:
-
-👉 https://contextualconv.readthedocs.io
-
-Includes API reference, architecture explanation, and usage tips.
+Full API reference & tutorials: **<https://contextualconv.readthedocs.io>**
 
 ---
 
-## 📄 License
+## 🤝 Contributing
 
-Licensed under GNU GPLv3.
-
----
-
-## 🤝 Contributing
-
-You're welcome to:
-- Add `ContextualConv3d`
-- Suggest other context conditioning strategies
-- Add notebook examples
-- Improve performance
-
-Open an issue or PR to contribute!
+Bug reports, feature requests, and PRs are welcome! See `CONTRIBUTING.md`.
 
 ---
 
-## 📫 Contact
+## 📄 License
 
-Questions? Issues? Reach out on GitHub or open a discussion.
+GNU GPLv3 – see `LICENSE` file for details.
+
