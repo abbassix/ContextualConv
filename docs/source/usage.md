@@ -16,9 +16,24 @@ out = layer(x)  # shape: (2, 8, 32)
 ## 🧠 1D Example with context (bias only)
 
 ```python
-layer = ContextualConv1d(in_channels=4, out_channels=8, kernel_size=3, padding=1, context_dim=10)
+layer = ContextualConv1d(in_channels=4, out_channels=8, kernel_size=3, padding=1, context_dim=10, use_bias=True)
 c = torch.randn(2, 10)
 out = layer(x, c)  # shape: (2, 8, 32)
+```
+
+## 🔁 1D Example with FiLM (scale + bias)
+
+```python
+layer = ContextualConv1d(
+    in_channels=4,
+    out_channels=8,
+    kernel_size=3,
+    padding=1,
+    context_dim=10,
+    use_scale=True,
+    use_bias=True
+)
+out = layer(x, c)  # y = γ(c) * conv(x) + β(c)
 ```
 
 ## 🧠 1D with MLP for context
@@ -66,7 +81,9 @@ conv = ContextualConv2d(
     kernel_size=3,
     padding=1,
     context_dim=10,
-    h_dim=32
+    h_dim=32,
+    use_scale=True,
+    use_bias=True
 )
 
 x = torch.randn(2, 3, 16, 16)
@@ -77,5 +94,6 @@ out = conv(x, c)  # shape: (2, 6, 16, 16)
 ## ✅ Notes
 
 - If `context_dim` is set, the context vector `c` is passed through a linear layer or MLP.
-- The result is used as a **per-output-channel bias**, added uniformly across all locations.
+- The result is used as a **per-output-channel scale and/or bias**, broadcast over all locations.
+- You can enable either `use_scale`, `use_bias`, or both.
 - You can disable the MLP by omitting `h_dim`.
