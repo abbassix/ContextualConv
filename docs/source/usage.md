@@ -16,7 +16,29 @@ out = layer(x)  # shape: (2, 8, 32)
 ## 🧠 1D Example with context (bias only)
 
 ```python
-layer = ContextualConv1d(in_channels=4, out_channels=8, kernel_size=3, padding=1, context_dim=10, use_bias=True)
+layer = ContextualConv1d(
+    in_channels=4,
+    out_channels=8,
+    kernel_size=3,
+    padding=1,
+    context_dim=10,
+    use_bias=True
+)
+c = torch.randn(2, 10)
+out = layer(x, c)  # shape: (2, 8, 32)
+```
+
+## 🧠 1D Example with context (scale only)
+
+```python
+layer = ContextualConv1d(
+    in_channels=4,
+    out_channels=8,
+    kernel_size=3,
+    padding=1,
+    context_dim=10,
+    use_scale=True
+)
 c = torch.randn(2, 10)
 out = layer(x, c)  # shape: (2, 8, 32)
 ```
@@ -33,6 +55,7 @@ layer = ContextualConv1d(
     use_scale=True,
     use_bias=True
 )
+c = torch.randn(2, 10)
 out = layer(x, c)  # y = γ(c) * conv(x) + β(c)
 ```
 
@@ -45,7 +68,8 @@ layer = ContextualConv1d(
     kernel_size=3,
     padding=1,
     context_dim=10,
-    h_dim=16
+    h_dim=16,
+    use_bias=True
 )
 out = layer(x, c)
 ```
@@ -61,7 +85,8 @@ layer = ContextualConv1d(
     kernel_size=3,
     padding=1,
     context_dim=10,
-    h_dim=[32, 64, 16]  # three-layer MLP
+    h_dim=[32, 64, 16],
+    use_scale=True
 )
 ```
 
@@ -70,7 +95,7 @@ This creates the following context path:
 `context_dim → 32 → ReLU → 64 → ReLU → 16 → ReLU → out_channels`
 
 
-## 🖼️ 2D Example with context
+## 🖼️ 2D Example with FiLM-style context
 
 ```python
 from contextual_conv import ContextualConv2d
