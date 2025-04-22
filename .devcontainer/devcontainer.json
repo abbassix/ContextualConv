@@ -1,0 +1,17 @@
+{
+  "name": "ContextualConv Dev",
+  "image": "python:3.10",
+  "workspaceFolder": "/workspaces/ContextualConv",
+  "postCreateCommand": "pip install -r requirements.txt",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python"
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-toolsai.jupyter"
+      ]
+    }
+  }
+}
