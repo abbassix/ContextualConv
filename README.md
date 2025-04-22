@@ -59,7 +59,7 @@ If *both* flags are `False`, the constructor raises `ValueError`.
 ## 📦 Installation
 
 ```bash
-pip install contextual-conv  # coming soon: v0.3.0
+pip install contextual-conv  # version 0.3.0 on PyPI
 ```
 
 Or install from source:
