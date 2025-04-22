@@ -1,5 +1,3 @@
-.. _contextualconv:
-
 ContextualConv
 ==============
 
