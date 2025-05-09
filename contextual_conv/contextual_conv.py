@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Callable
 
 __all__ = ["ContextProcessor", "ContextualConv1d", "ContextualConv2d"]
 
@@ -61,6 +61,7 @@ class _ContextualConvBase(nn.Module):
         *,
         context_dim: Optional[int] = None,
         h_dim: Optional[int] = None,
+        activation: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
         use_scale: bool = False,
         use_bias: bool = True,
         linear_bias: bool = False,
@@ -70,6 +71,7 @@ class _ContextualConvBase(nn.Module):
             raise ValueError("At least one of `use_scale` or `use_bias` must be True.")
 
         self.conv = conv
+        self.activation = activation
         self.use_scale = bool(use_scale)
         self.use_bias = bool(use_bias)
         self.use_context = context_dim is not None and context_dim > 0
@@ -127,11 +129,17 @@ class _ContextualConvBase(nn.Module):
     # ---------------------------------------------------------------------
     def _forward_impl(self, x: torch.Tensor, c: Optional[torch.Tensor]) -> torch.Tensor:
         out = self.conv(x)
+
+        if self.activation is not None:
+            out = self.activation(out)
+
         if self.use_context and c is not None:
             ctx = self.context_processor(c)  # (B, n_parts)
             gamma, beta = self._split_ctx(ctx)
             out = self._apply_film(out, gamma, beta)
+
         return out
+
 
 
 class ContextualConv1d(_ContextualConvBase):
@@ -151,6 +159,7 @@ class ContextualConv1d(_ContextualConvBase):
         out_channels: int,
         kernel_size: int,
         *,
+        activation: Optional[Callable] = None,
         context_dim: Optional[int] = None,
         h_dim: Optional[int] = None,
         use_scale: bool = False,
@@ -161,6 +170,7 @@ class ContextualConv1d(_ContextualConvBase):
         conv = nn.Conv1d(in_channels, out_channels, kernel_size, **conv_kwargs)
         super().__init__(
             conv,
+            activation=activation,
             context_dim=context_dim,
             h_dim=h_dim,
             use_scale=use_scale,
@@ -189,6 +199,7 @@ class ContextualConv2d(_ContextualConvBase):
         out_channels: int,
         kernel_size: int,
         *,
+        activation: Optional[Callable] = None,
         context_dim: Optional[int] = None,
         h_dim: Optional[int] = None,
         use_scale: bool = False,
@@ -199,6 +210,7 @@ class ContextualConv2d(_ContextualConvBase):
         conv = nn.Conv2d(in_channels, out_channels, kernel_size, **conv_kwargs)
         super().__init__(
             conv,
+            activation=activation,
             context_dim=context_dim,
             h_dim=h_dim,
             use_scale=use_scale,
