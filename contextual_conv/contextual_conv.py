@@ -19,15 +19,16 @@ class ContextProcessor(nn.Module):
         context_dim: int,
         out_dim: int,
         h_dim: Optional[int] = None,
+        linear_bias: bool = False,
     ) -> None:
         super().__init__()
         if h_dim is None or h_dim <= 0:
-            self.processor = nn.Linear(context_dim, out_dim)
+            self.processor = nn.Linear(context_dim, out_dim, bias=linear_bias)
         else:
             self.processor = nn.Sequential(
-                nn.Linear(context_dim, h_dim),
+                nn.Linear(context_dim, h_dim, bias=linear_bias),
                 nn.ReLU(inplace=True),
-                nn.Linear(h_dim, out_dim),
+                nn.Linear(h_dim, out_dim, bias=linear_bias),
             )
 
     def forward(self, c: torch.Tensor) -> torch.Tensor:  # noqa: D401  (keep short doc)
@@ -54,6 +55,7 @@ class _ContextualConvBase(nn.Module):
         h_dim: Optional[int] = None,
         use_scale: bool = False,
         use_bias: bool = True,
+        linear_bias: bool = False,
     ) -> None:
         super().__init__()
         if not use_scale and not use_bias:
@@ -67,7 +69,7 @@ class _ContextualConvBase(nn.Module):
 
         if self.use_context:
             n_parts = (self.use_scale + self.use_bias) * self.out_channels
-            self.context_processor = ContextProcessor(context_dim, n_parts, h_dim)
+            self.context_processor = ContextProcessor(context_dim, n_parts, h_dim, linear_bias=linear_bias)
 
         # Optional: init context processor so the layer starts as identity.
         if self.use_context and self.use_scale:
@@ -145,6 +147,7 @@ class ContextualConv1d(_ContextualConvBase):
         h_dim: Optional[int] = None,
         use_scale: bool = False,
         use_bias: bool = True,
+        linear_bias: bool = False,
         **conv_kwargs,
     ) -> None:
         conv = nn.Conv1d(in_channels, out_channels, kernel_size, **conv_kwargs)
@@ -154,6 +157,7 @@ class ContextualConv1d(_ContextualConvBase):
             h_dim=h_dim,
             use_scale=use_scale,
             use_bias=use_bias,
+            linear_bias=linear_bias,
         )
 
     # pyre-ignore[3]: We intentionally match ``nn.Conv1d`` signature (+c).
@@ -181,6 +185,7 @@ class ContextualConv2d(_ContextualConvBase):
         h_dim: Optional[int] = None,
         use_scale: bool = False,
         use_bias: bool = True,
+        linear_bias: bool = False,
         **conv_kwargs,
     ) -> None:
         conv = nn.Conv2d(in_channels, out_channels, kernel_size, **conv_kwargs)
@@ -190,6 +195,7 @@ class ContextualConv2d(_ContextualConvBase):
             h_dim=h_dim,
             use_scale=use_scale,
             use_bias=use_bias,
+            linear_bias=linear_bias,
         )
 
     # pyre-ignore[3]
