@@ -139,6 +139,45 @@ class _ContextualConvBase(nn.Module):
             out = self._apply_film(out, gamma, beta)
 
         return out
+    
+    @torch.no_grad()
+    def infer_context(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Estimate the global context vector `c` from input `x`.
+
+        This only works when:
+        - `context_dim` is set
+        - `ContextProcessor` is a single Linear layer
+        - `linear_bias=False`
+
+        Args:
+            x: Input tensor of shape (B, C, L) for Conv1d or (B, C, H, W) for Conv2d.
+
+        Returns:
+            Estimated context tensor of shape (B, context_dim)
+        """
+        if not self.use_context:
+            raise RuntimeError("Cannot infer context when context is disabled.")
+        if not isinstance(self.context_processor.processor, nn.Linear):
+            raise NotImplementedError("Context inference is only supported for single Linear context processors.")
+        if self.context_processor.processor.bias is not None:
+            raise NotImplementedError("Context processor must not use bias for inference.")
+
+        # Step 1: Apply conv and activation
+        out = self.conv(x)
+        if self.activation is not None:
+            out = self.activation(out)
+
+        # Step 2: Pool squared features over spatial dimensions
+        dims = list(range(2, out.dim()))
+        pooled = out.pow(2).mean(dim=dims)  # shape: (B, out_channels)
+
+        # Step 3: Apply pseudoinverse to recover `c`
+        W = self.context_processor.processor.weight  # (out_dim, context_dim)
+        W_pinv = torch.linalg.pinv(W)                # (context_dim, out_dim)
+        c = pooled @ W_pinv.T                        # (B, context_dim)
+
+        return c
 
 
 
