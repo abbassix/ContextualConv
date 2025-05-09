@@ -22,14 +22,22 @@ class ContextProcessor(nn.Module):
         linear_bias: bool = False,
     ) -> None:
         super().__init__()
-        if h_dim is None or h_dim <= 0:
+        if h_dim is None or (isinstance(h_dim, int) and h_dim <= 0):
+            # Simple linear projection
             self.processor = nn.Linear(context_dim, out_dim, bias=linear_bias)
         else:
-            self.processor = nn.Sequential(
-                nn.Linear(context_dim, h_dim, bias=linear_bias),
-                nn.ReLU(inplace=True),
-                nn.Linear(h_dim, out_dim, bias=linear_bias),
-            )
+            # Build MLP
+            layers = []
+            input_dim = context_dim
+            hidden_dims = h_dim if isinstance(h_dim, list) else [h_dim]
+
+            for hidden_dim in hidden_dims:
+                layers.append(nn.Linear(input_dim, hidden_dim, bias=linear_bias))
+                layers.append(nn.ReLU(inplace=True))
+                input_dim = hidden_dim
+
+            layers.append(nn.Linear(input_dim, out_dim, bias=linear_bias))
+            self.processor = nn.Sequential(*layers)
 
     def forward(self, c: torch.Tensor) -> torch.Tensor:  # noqa: D401  (keep short doc)
         """Return context‑dependent parameters.
