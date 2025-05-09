@@ -149,6 +149,7 @@ class _ContextualConvBase(nn.Module):
         - `context_dim` is set
         - `ContextProcessor` is a single Linear layer
         - `linear_bias=False`
+        - `use_bias=False`
 
         Args:
             x: Input tensor of shape (B, C, L) for Conv1d or (B, C, H, W) for Conv2d.
@@ -157,28 +158,29 @@ class _ContextualConvBase(nn.Module):
             Estimated context tensor of shape (B, context_dim)
         """
         if not self.use_context:
-            raise RuntimeError("Cannot infer context when context is disabled.")
-        if not isinstance(self.context_processor.processor, nn.Linear):
-            raise NotImplementedError("Context inference is only supported for single Linear context processors.")
-        if self.context_processor.processor.bias is not None:
-            raise NotImplementedError("Context processor must not use bias for inference.")
+            raise RuntimeError("Context is not enabled in this layer.")
 
-        # Step 1: Apply conv and activation
+        processor = self.context_processor.processor
+        if not isinstance(processor, nn.Linear):
+            raise RuntimeError("ContextProcessor must be a single Linear layer.")
+        if processor.bias is not None and not torch.allclose(processor.bias, torch.zeros_like(processor.bias)):
+            raise RuntimeError("Linear bias must be disabled (bias=False).")
+        if self.use_bias:
+            raise RuntimeError("use_bias must be False for reversibility.")
+
         out = self.conv(x)
         if self.activation is not None:
             out = self.activation(out)
 
-        # Step 2: Pool squared features over spatial dimensions
-        dims = list(range(2, out.dim()))
-        pooled = out.pow(2).mean(dim=dims)  # shape: (B, out_channels)
+        # Compute per-channel mean of squared activation
+        squared = out.pow(2)
+        dims = list(range(2, 2 + self._NDIMS))  # spatial dimensions
+        pooled = squared.mean(dim=dims)  # shape: (B, C)
 
-        # Step 3: Apply pseudoinverse to recover `c`
-        W = self.context_processor.processor.weight  # (out_dim, context_dim)
-        W_pinv = torch.linalg.pinv(W)                # (context_dim, out_dim)
-        c = pooled @ W_pinv.T                        # (B, context_dim)
-
-        return c
-
+        # Solve c from: pooled = c @ W.T  => c = pooled @ W^{-T}
+        weight = processor.weight  # shape: (out_dim, context_dim)
+        context = pooled @ torch.linalg.pinv(weight).T  # shape: (B, context_dim)
+        return context
 
 
 class ContextualConv1d(_ContextualConvBase):
