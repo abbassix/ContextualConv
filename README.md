@@ -1,15 +1,16 @@
-# ContextualConv  
+# ContextualConv
 
 [![PyPI version](https://img.shields.io/pypi/v/contextual-conv)](https://pypi.org/project/contextual-conv/)
 [![CI](https://github.com/abbassix/ContextualConv/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/abbassix/ContextualConv/actions/workflows/test.yml)
 [![Docs](https://readthedocs.org/projects/contextualconv/badge/?version=latest)](https://contextualconv.readthedocs.io/en/latest/)
+[![Coverage](https://img.shields.io/codecov/c/github/abbassix/ContextualConv/main.svg?style=flat)](https://codecov.io/gh/abbassix/ContextualConv)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 > **ContextualConv** – PyTorch convolutional layers with **global context conditioning**: per‑channel **bias**, **scale**, or **FiLM‑style** *scale + bias*.
 
 ---
 
-## 🚀 Quick start
+## 🚀 Quick start
 
 ```python
 from contextual_conv import ContextualConv2d
@@ -34,32 +35,33 @@ out = conv(x, c)  # shape: (8, 32, 32, 32)
 ```
 
 ### Modes at a glance
+
 | `use_scale` | `use_bias` | Behaviour |
-|-------------|-----------|-----------|
-| `False`     | `True`    | **Contextual bias** (original behaviour) |
-| `True`      | `False`   | **Per‑channel scale** only |
-| `True`      | `True`    | **FiLM** – scale **and** bias |
+|-------------|------------|-----------|
+| `False`     | `True`     | **Contextual bias** (original behaviour) |
+| `True`      | `False`    | **Per‑channel scale** only |
+| `True`      | `True`     | **FiLM** – scale **and** bias |
 
 If *both* flags are `False`, the constructor raises `ValueError`.
 
 ---
 
-## 🔧 Key features
+## 🔧 Key features
 
-* ⚙️ **Drop‑in replacement** for `nn.Conv1d` / `nn.Conv2d`  
+* ⚙️ **Drop‑in replacement** for `nn.Conv1d` / `nn.Conv2d`  
   → Same arguments + optional context options.
-* 🧠 **Global vector conditioning** via learnable γ(c) and/or β(c).
-* 🪶 **Lightweight** – one small MLP (or single `Linear`) per layer.
-* 🧑‍🔬 **FiLM ready** – reproduce Feature‑wise Linear Modulation with two lines.
-* 🧩 **Modular** – combine with any architecture, works on CPU / GPU.
-* ✅ **Unit‑tested** and documented.
+* 🧠 **Global vector conditioning** via learnable γ(c) and/or β(c).
+* 🪶 **Lightweight** – one small MLP (or single `Linear`) per layer.
+* 🧑‍🔬 **FiLM ready** – reproduce Feature‑wise Linear Modulation with two lines.
+* 🧩 **Modular** – combine with any architecture, works on CPU / GPU.
+* ✅ **Unit‑tested** and documented.
 
 ---
 
-## 📦 Installation
+## 📦 Installation
 
 ```bash
-pip install contextual-conv  # version 0.3.0 on PyPI
+pip install contextual-conv  # version 0.4.0 on PyPI
 ```
 
 Or install from source:
@@ -72,7 +74,7 @@ pip install -e .[dev]
 
 ---
 
-## 📐 Context vector details
+## 📐 Context vector details
 
 * Shape: **`(B, context_dim)`**  
   (one global descriptor per sample – class label embedding, latent code, etc.)
@@ -85,27 +87,28 @@ pip install -e .[dev]
 
 ---
 
-## 🧪 Running tests
+## 🧪 Running tests
+
+Run the full test suite with coverage:
 
 ```bash
-pytest tests/
+pytest --cov=contextual_conv --cov-report=term-missing
 ```
 
 ---
 
-## 📘 Documentation
+## 📘 Documentation
 
 Full API reference & tutorials: **<https://contextualconv.readthedocs.io>**
 
 ---
 
-## 🤝 Contributing
+## 🤝 Contributing
 
 Bug reports, feature requests, and PRs are welcome! See `CONTRIBUTING.md`.
 
 ---
 
-## 📄 License
+## 📄 License
 
 GNU GPLv3 – see `LICENSE` file for details.
-
