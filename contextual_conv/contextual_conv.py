@@ -145,6 +145,10 @@ class _ContextualConvBase(nn.Module):
         """
         Estimate the global context vector `c` from input `x`.
 
+        This method uses the approximation:
+            c ≈ (V @ (W + 1)), where V is the per-channel energy vector
+        and W is the weight matrix of the context processor's Linear layer.
+
         This only works when:
         - `context_dim` is set
         - `ContextProcessor` is a single Linear layer
@@ -172,14 +176,17 @@ class _ContextualConvBase(nn.Module):
         if self.activation is not None:
             out = self.activation(out)
 
-        # Compute per-channel mean of squared activation
+        # Compute per-channel mean of squared activation: shape (B, C)
         squared = out.pow(2)
-        dims = list(range(2, 2 + self._NDIMS))  # spatial dimensions
-        pooled = squared.mean(dim=dims)  # shape: (B, C)
+        dims = list(range(2, 2 + self._NDIMS))  # spatial dims
+        V = squared.mean(dim=dims)  # shape: (B, C)
 
-        # Solve c from: pooled = c @ W.T  => c = pooled @ W^{-T}
-        weight = processor.weight  # shape: (out_dim, context_dim)
-        context = pooled @ torch.linalg.pinv(weight).T  # shape: (B, context_dim)
+        # Get weight matrix and add 1
+        W_plus_1 = processor.weight + 1  # shape: (out_dim, context_dim)
+
+        # Compute context as V @ (W_plus_1) — shape: (B, context_dim)
+        context = V @ W_plus_1
+
         return context
 
 
