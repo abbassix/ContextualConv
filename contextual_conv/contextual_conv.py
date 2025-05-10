@@ -192,7 +192,7 @@ class _ContextualConvBase(nn.Module):
 
 
 class ContextualConv1d(_ContextualConvBase):
-    """1-D convolution with optional FiLM-style global conditioning.
+    r"""1-D convolution with optional FiLM-style global conditioning.
 
     Works as a drop-in replacement for :class:`torch.nn.Conv1d`.  When a global
     context vector ``c`` is provided, the layer can predict a per-channel
@@ -234,7 +234,7 @@ class ContextualConv1d(_ContextualConvBase):
 
 
 class ContextualConv2d(_ContextualConvBase):
-    """2-D convolution with optional FiLM-style global conditioning.
+    r"""2-D convolution with optional FiLM-style global conditioning.
 
     Usage is identical to :class:`torch.nn.Conv2d` except for the extra
     *context* arguments that control scaling and biasing.
