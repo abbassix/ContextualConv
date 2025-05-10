@@ -183,11 +183,14 @@ def test_infer_context_modulation_effect():
         linear_bias=False,
     )
 
+    # Perturb context processor weights to break identity initialization
+    with torch.no_grad():
+        layer.context_processor.processor.weight.uniform_(-1.0, 1.0)
+
     out_base = layer(x, None)
     c_infer = layer.infer_context(x)
     out_modulated = layer(x, c_infer)
 
-    # Should differ if modulation is applied
     assert not torch.allclose(out_base, out_modulated, atol=1e-4)
 
 
