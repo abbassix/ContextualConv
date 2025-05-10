@@ -6,7 +6,7 @@ __all__ = ["ContextProcessor", "ContextualConv1d", "ContextualConv2d"]
 
 
 class ContextProcessor(nn.Module):
-    """Maps a *global* context vector ``c`` to per-channel parameters.
+    r"""Maps a *global* context vector ``c`` to per-channel parameters.
 
     The processor is deliberately lightweight - a single ``Linear`` layer by
     default or an MLP with one hidden layer if ``h_dim`` is provided.  The
