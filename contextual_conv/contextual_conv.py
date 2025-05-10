@@ -8,7 +8,7 @@ __all__ = ["ContextProcessor", "ContextualConv1d", "ContextualConv2d"]
 class ContextProcessor(nn.Module):
     """Maps a *global* context vector ``c`` to per-channel parameters.
 
-    The processor is deliberately lightweight – a single ``Linear`` layer by
+    The processor is deliberately lightweight - a single ``Linear`` layer by
     default or an MLP with one hidden layer if ``h_dim`` is provided.  The
     output dimension is chosen by the calling layer and can represent scale
     (``\gamma``), bias (``\beta``) or both.
@@ -102,7 +102,7 @@ class _ContextualConvBase(nn.Module):
     def _apply_film(self, out: torch.Tensor, gamma: Optional[torch.Tensor], beta: Optional[torch.Tensor]):
         """Broadcast and apply FiLM parameters."""
         if gamma is not None:
-            # Broadcast: (B, C, *1) – add trailing singleton dims to match ND.
+            # Broadcast: (B, C, *1) - add trailing singleton dims to match ND.
             for _ in range(self._NDIMS):
                 gamma = gamma.unsqueeze(-1)
             out = out * (1.0 + gamma)  # centre scale at 1 for stability
@@ -126,7 +126,7 @@ class _ContextualConvBase(nn.Module):
                 nn.init.zeros_(last_linear.bias)
 
     # ---------------------------------------------------------------------
-    # Forward – subclasses will wrap and add dimensionality logic.
+    # Forward - subclasses will wrap and add dimensionality logic.
     # ---------------------------------------------------------------------
     def _forward_impl(self, x: torch.Tensor, c: Optional[torch.Tensor]) -> torch.Tensor:
         out = self.conv(x)

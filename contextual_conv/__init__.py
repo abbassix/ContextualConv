@@ -1,3 +1,3 @@
-from .contextual_conv import ContextualConv1d, ContextualConv2d
+from .contextual_conv import ContextProcessor, ContextualConv1d, ContextualConv2d
 
-__all__ = ['ContextualConv1d', 'ContextualConv2d']
+__all__ = ["ContextProcessor", "ContextualConv1d", "ContextualConv2d"]
