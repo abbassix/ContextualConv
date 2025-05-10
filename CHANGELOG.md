@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
+## [0.4.0] – 2025-05-10
+
+### Added
+- New method: `infer_context(x)` to estimate the context vector from inputs.
+- Optional `activation` argument to apply a nonlinearity after convolution but before FiLM modulation.
+- `linear_bias` argument to allow disabling bias in `ContextProcessor` (required for reversibility and `infer_context`).
+- Tests for `infer_context()` and `ContextProcessor`, including correctness and error modes.
+- PyTorch profiler-compatible unit tests and coverage support in CI.
+- `README.md` updated with coverage badge and improved usage instructions.
+
+### Changed
+- `_init_scale_to_one` now checks for `None` before zeroing `bias`, fixing a crash when `bias=False`.
+- Identity initialization now works even with `linear_bias=False`.
+- Refactored `_forward_impl` to optionally apply `activation`.
+- Improved compatibility with torchscript and reproducibility-focused workflows.
+- Tightened test coverage, including numerical checks and FiLM effectiveness.
+
+### Fixed
+- Fixed import error in tests due to missing `ContextProcessor` export in `__init__.py`.
+- Avoided `AttributeError` when `bias` is disabled in the last Linear layer.
+- Escaped invalid backslashes in docstrings to silence DeprecationWarnings in Python ≥3.12.
+
 
 ## [0.3.0] – 2025-04-22
 
