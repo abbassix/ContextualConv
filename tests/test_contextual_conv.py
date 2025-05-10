@@ -2,7 +2,7 @@
 
 import pytest
 import torch
-from contextual_conv import ContextualConv1d, ContextualConv2d
+from contextual_conv import ContextProcessor, ContextualConv1d, ContextualConv2d
 import torch.nn.functional as F
 
 

@@ -6,7 +6,7 @@ __all__ = ["ContextProcessor", "ContextualConv1d", "ContextualConv2d"]
 
 
 class ContextProcessor(nn.Module):
-    """Maps a *global* context vector ``c`` to per‑channel parameters.
+    """Maps a *global* context vector ``c`` to per-channel parameters.
 
     The processor is deliberately lightweight – a single ``Linear`` layer by
     default or an MLP with one hidden layer if ``h_dim`` is provided.  The
@@ -40,7 +40,7 @@ class ContextProcessor(nn.Module):
             self.processor = nn.Sequential(*layers)
 
     def forward(self, c: torch.Tensor) -> torch.Tensor:  # noqa: D401  (keep short doc)
-        """Return context‑dependent parameters.
+        """Return context-dependent parameters.
 
         Args:
             c: Tensor of shape ``(B, context_dim)``.
@@ -51,7 +51,7 @@ class ContextProcessor(nn.Module):
 
 
 class _ContextualConvBase(nn.Module):
-    """Shared implementation details for 1‑D and 2‑D contextual conv layers."""
+    """Shared implementation details for 1-D and 2-D contextual conv layers."""
 
     _NDIMS: int  # to be set by subclasses
 
@@ -122,7 +122,8 @@ class _ContextualConvBase(nn.Module):
 
         if last_linear is not None:
             nn.init.zeros_(last_linear.weight)
-            nn.init.zeros_(last_linear.bias)
+            if last_linear.bias is not None:
+                nn.init.zeros_(last_linear.bias)
 
     # ---------------------------------------------------------------------
     # Forward – subclasses will wrap and add dimensionality logic.
@@ -191,10 +192,10 @@ class _ContextualConvBase(nn.Module):
 
 
 class ContextualConv1d(_ContextualConvBase):
-    """1‑D convolution with optional FiLM‑style global conditioning.
+    """1-D convolution with optional FiLM-style global conditioning.
 
-    Works as a drop‑in replacement for :class:`torch.nn.Conv1d`.  When a global
-    context vector ``c`` is provided, the layer can predict a per‑channel
+    Works as a drop-in replacement for :class:`torch.nn.Conv1d`.  When a global
+    context vector ``c`` is provided, the layer can predict a per-channel
     *scale* (``\gamma``), *bias* (``\beta``) or both and apply them to the
     convolution output, following the FiLM formulation.
     """
@@ -233,7 +234,7 @@ class ContextualConv1d(_ContextualConvBase):
 
 
 class ContextualConv2d(_ContextualConvBase):
-    """2‑D convolution with optional FiLM‑style global conditioning.
+    """2-D convolution with optional FiLM-style global conditioning.
 
     Usage is identical to :class:`torch.nn.Conv2d` except for the extra
     *context* arguments that control scaling and biasing.
