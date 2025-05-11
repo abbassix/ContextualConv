@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
+
+## [0.5.0] – 2025-05-11
+
+### Added
+- `scale_mode` argument to control modulation behavior:
+  - `"film"`: `out * (1 + γ) + β`
+  - `"scale"`: `out * γ + β`
+- Support for custom context summarization via optional `g` function.
+- New test cases covering both modulation modes and custom context functions.
+- One-hot encoded `context` vectors used in identity initialization tests.
+- Full README overhaul with `scale_mode` usage examples and updated mode table.
+
+### Changed
+- Renamed internal `_apply_film` to `_apply_modulation` for generality.
+- `_init_scale` now initializes weights and biases based on `scale_mode`:
+  - In `"film"` mode: `γ ≈ 0` (via weight=0, bias=0)
+  - In `"scale"` mode: `γ ≈ 1` (via weight=1, bias=0)
+- Improved test stability by using controlled context inputs.
+
+### Fixed
+- Identity initialization in `"scale"` mode now correctly yields no change in output.
+- Test failures due to variance in random context vectors are resolved using one-hot vectors.
+
+---
+
 ## [0.4.0] – 2025-05-10
 
 ### Added
@@ -27,6 +52,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - Avoided `AttributeError` when `bias` is disabled in the last Linear layer.
 - Escaped invalid backslashes in docstrings to silence DeprecationWarnings in Python ≥3.12.
 
+---
 
 ## [0.3.0] – 2025-04-22
 
