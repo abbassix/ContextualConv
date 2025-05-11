@@ -157,7 +157,15 @@ def test_infer_context_raises(setting):
 
 @pytest.mark.parametrize("scale_mode", ["film", "scale"])
 def test_scale_mode_identity_initialization(scale_mode):
-    x, c = torch.randn(4, 3, 64), torch.randn(4, 6)
+    x = torch.randn(4, 3, 64)
+
+    if scale_mode == "scale":
+        # one-hot context: each row has a single 1
+        indices = torch.randint(0, 6, (4,))
+        c = F.one_hot(indices, num_classes=6).float()
+    else:
+        c = torch.randn(4, 6)
+
     layer = ContextualConv1d(
         in_channels=3,
         out_channels=3,
@@ -169,8 +177,10 @@ def test_scale_mode_identity_initialization(scale_mode):
         linear_bias=False,
         scale_mode=scale_mode,
     )
-    out_modulated = layer(x, c)
+
     out_plain = layer(x, None)
+    out_modulated = layer(x, c)
+
     assert torch.allclose(out_plain, out_modulated, atol=1e-3)
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required for timing test")
