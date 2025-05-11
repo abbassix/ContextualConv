@@ -105,6 +105,7 @@ class _ContextualConvBase(nn.Module):
         """Initialize scale parameters to identity (0 for FiLM, 1 for scale)."""
         if not self.use_context:
             return
+
         processor = self.context_processor.processor
         last_linear = None
         if isinstance(processor, nn.Linear):
@@ -113,8 +114,8 @@ class _ContextualConvBase(nn.Module):
             last_linear = processor[-1]
 
         if last_linear is not None:
-            nn.init.zeros_(last_linear.weight)
-            if last_linear.bias is not None:
+            nn.init.zeros_(last_linear.weight)  # always zero out weight
+            if self.use_scale and last_linear.bias is not None:
                 if self.scale_mode == "film":
                     nn.init.zeros_(last_linear.bias)
                 elif self.scale_mode == "scale":
