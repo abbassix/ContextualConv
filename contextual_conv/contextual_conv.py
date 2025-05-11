@@ -65,6 +65,7 @@ class _ContextualConvBase(nn.Module):
         use_scale: bool = False,
         use_bias: bool = True,
         linear_bias: bool = False,
+        g: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
     ) -> None:
         super().__init__()
         if not use_scale and not use_bias:
@@ -72,6 +73,7 @@ class _ContextualConvBase(nn.Module):
 
         self.conv = conv
         self.activation = activation
+        self.g_fn = g if g is not None else self._default_g_fn
         self.use_scale = bool(use_scale)
         self.use_bias = bool(use_bias)
         self.use_context = context_dim is not None and context_dim > 0
@@ -88,6 +90,12 @@ class _ContextualConvBase(nn.Module):
     # ---------------------------------------------------------------------
     # Helpers
     # ---------------------------------------------------------------------
+    def _default_g_fn(self, out: torch.Tensor) -> torch.Tensor:
+        # Per-channel sum of squared values (energy), shape (B, C)
+        squared = out.pow(2)
+        dims = list(range(2, 2 + self._NDIMS))
+        return squared.mean(dim=dims)
+
     def _split_ctx(self, ctx: torch.Tensor) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
         """Split *ctx* into ``gamma`` and/or ``beta`` parts depending on flags."""
         idx = 0
@@ -177,10 +185,7 @@ class _ContextualConvBase(nn.Module):
         if self.activation is not None:
             out = self.activation(out)
 
-        # Compute per-channel mean of squared activation: shape (B, C)
-        squared = out.pow(2)
-        dims = list(range(2, 2 + self._NDIMS))  # spatial dims
-        V = squared.mean(dim=dims)  # shape: (B, C)
+        V = self.g_fn(out)  # shape: (B, C)
 
         # Get weight matrix and add 1
         W_plus_1 = processor.weight + 1  # shape: (out_dim, context_dim)
