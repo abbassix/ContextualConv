@@ -102,7 +102,7 @@ class _ContextualConvBase(nn.Module):
         return out
 
     def _init_scale(self) -> None:
-        """Initialize scale parameters to identity (0 for FiLM, 1 for scale)."""
+        """Initialize scale parameters to identity depending on scale mode."""
         if not self.use_context:
             return
 
@@ -114,12 +114,15 @@ class _ContextualConvBase(nn.Module):
             last_linear = processor[-1]
 
         if last_linear is not None:
-            nn.init.zeros_(last_linear.weight)  # always zero out weight
-            if self.use_scale and last_linear.bias is not None:
+            if self.use_scale:
                 if self.scale_mode == "film":
-                    nn.init.zeros_(last_linear.bias)
+                    nn.init.zeros_(last_linear.weight)
+                    if last_linear.bias is not None:
+                        nn.init.zeros_(last_linear.bias)
                 elif self.scale_mode == "scale":
-                    nn.init.ones_(last_linear.bias)
+                    nn.init.ones_(last_linear.weight)
+                    if last_linear.bias is not None:
+                        nn.init.zeros_(last_linear.bias)
 
     def _forward_impl(self, x: torch.Tensor, c: Optional[torch.Tensor]) -> torch.Tensor:
         out = self.conv(x)
