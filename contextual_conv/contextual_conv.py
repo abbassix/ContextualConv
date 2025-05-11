@@ -1,18 +1,12 @@
 import torch
 import torch.nn as nn
-from typing import Optional, Tuple, Callable
+from typing import Optional, Tuple, Callable, Literal
 
 __all__ = ["ContextProcessor", "ContextualConv1d", "ContextualConv2d"]
 
 
 class ContextProcessor(nn.Module):
-    r"""Maps a *global* context vector ``c`` to per-channel parameters.
-
-    The processor is deliberately lightweight - a single ``Linear`` layer by
-    default or an MLP with one hidden layer if ``h_dim`` is provided.  The
-    output dimension is chosen by the calling layer and can represent scale
-    (``\gamma``), bias (``\beta``) or both.
-    """
+    """Maps a global context vector `c` to per-channel parameters (gamma, beta)."""
 
     def __init__(
         self,
@@ -23,37 +17,26 @@ class ContextProcessor(nn.Module):
     ) -> None:
         super().__init__()
         if h_dim is None or (isinstance(h_dim, int) and h_dim <= 0):
-            # Simple linear projection
             self.processor = nn.Linear(context_dim, out_dim, bias=linear_bias)
         else:
-            # Build MLP
             layers = []
             input_dim = context_dim
             hidden_dims = h_dim if isinstance(h_dim, list) else [h_dim]
-
             for hidden_dim in hidden_dims:
                 layers.append(nn.Linear(input_dim, hidden_dim, bias=linear_bias))
                 layers.append(nn.ReLU(inplace=True))
                 input_dim = hidden_dim
-
             layers.append(nn.Linear(input_dim, out_dim, bias=linear_bias))
             self.processor = nn.Sequential(*layers)
 
-    def forward(self, c: torch.Tensor) -> torch.Tensor:  # noqa: D401  (keep short doc)
-        """Return context-dependent parameters.
-
-        Args:
-            c: Tensor of shape ``(B, context_dim)``.
-        Returns:
-            Tensor of shape ``(B, out_dim)``.
-        """
+    def forward(self, c: torch.Tensor) -> torch.Tensor:
         return self.processor(c)
 
 
 class _ContextualConvBase(nn.Module):
-    """Shared implementation details for 1-D and 2-D contextual conv layers."""
+    """Base class for contextual convolution layers with FiLM or scale+shift modulation."""
 
-    _NDIMS: int  # to be set by subclasses
+    _NDIMS: int  # to be defined in subclasses
 
     def __init__(
         self,
@@ -66,113 +49,93 @@ class _ContextualConvBase(nn.Module):
         use_bias: bool = True,
         linear_bias: bool = False,
         g: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
+        scale_mode: Literal["film", "scale"] = "film",
     ) -> None:
         super().__init__()
+
         if not use_scale and not use_bias:
             raise ValueError("At least one of `use_scale` or `use_bias` must be True.")
 
         self.conv = conv
         self.activation = activation
         self.g_fn = g if g is not None else self._default_g_fn
-        self.use_scale = bool(use_scale)
-        self.use_bias = bool(use_bias)
+        self.use_scale = use_scale
+        self.use_bias = use_bias
         self.use_context = context_dim is not None and context_dim > 0
         self.out_channels = conv.out_channels
+        self.scale_mode = scale_mode
 
         if self.use_context:
             n_parts = (self.use_scale + self.use_bias) * self.out_channels
             self.context_processor = ContextProcessor(context_dim, n_parts, h_dim, linear_bias=linear_bias)
 
-        # Optional: init context processor so the layer starts as identity.
-        if self.use_context and self.use_scale:
-            self._init_scale_to_one()
+            if self.use_scale:
+                self._init_scale()
 
-    # ---------------------------------------------------------------------
-    # Helpers
-    # ---------------------------------------------------------------------
     def _default_g_fn(self, out: torch.Tensor) -> torch.Tensor:
-        # Per-channel sum of squared values (energy), shape (B, C)
         squared = out.pow(2)
         dims = list(range(2, 2 + self._NDIMS))
         return squared.mean(dim=dims)
 
     def _split_ctx(self, ctx: torch.Tensor) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
-        """Split *ctx* into ``gamma`` and/or ``beta`` parts depending on flags."""
         idx = 0
         gamma = beta = None
         if self.use_scale:
-            gamma = ctx[:, idx : idx + self.out_channels]
+            gamma = ctx[:, idx:idx + self.out_channels]
             idx += self.out_channels
         if self.use_bias:
-            beta = ctx[:, idx : idx + self.out_channels]
+            beta = ctx[:, idx:idx + self.out_channels]
         return gamma, beta
 
-    def _apply_film(self, out: torch.Tensor, gamma: Optional[torch.Tensor], beta: Optional[torch.Tensor]):
-        """Broadcast and apply FiLM parameters."""
+    def _apply_modulation(self, out: torch.Tensor, gamma: Optional[torch.Tensor], beta: Optional[torch.Tensor]):
         if gamma is not None:
-            # Broadcast: (B, C, *1) - add trailing singleton dims to match ND.
             for _ in range(self._NDIMS):
                 gamma = gamma.unsqueeze(-1)
-            out = out * (1.0 + gamma)  # centre scale at 1 for stability
+            if self.scale_mode == "film":
+                out = out * (1.0 + gamma)
+            elif self.scale_mode == "scale":
+                out = out * gamma
         if beta is not None:
             for _ in range(self._NDIMS):
                 beta = beta.unsqueeze(-1)
             out = out + beta
         return out
 
-    def _init_scale_to_one(self) -> None:
-        """Initialise scale parameters such that *gamma*≈0 ⇒ effective scale ≈1."""
-        last_linear: nn.Linear = None  # type: ignore
-        if isinstance(self.context_processor.processor, nn.Linear):
-            last_linear = self.context_processor.processor
-        elif isinstance(self.context_processor.processor, nn.Sequential):
-            last_linear = self.context_processor.processor[-1]  # type: ignore
+    def _init_scale(self) -> None:
+        """Initialize scale parameters to identity (0 for FiLM, 1 for scale)."""
+        if not self.use_context:
+            return
+        processor = self.context_processor.processor
+        last_linear = None
+        if isinstance(processor, nn.Linear):
+            last_linear = processor
+        elif isinstance(processor, nn.Sequential):
+            last_linear = processor[-1]
 
         if last_linear is not None:
             nn.init.zeros_(last_linear.weight)
             if last_linear.bias is not None:
-                nn.init.zeros_(last_linear.bias)
+                if self.scale_mode == "film":
+                    nn.init.zeros_(last_linear.bias)
+                elif self.scale_mode == "scale":
+                    nn.init.ones_(last_linear.bias)
 
-    # ---------------------------------------------------------------------
-    # Forward - subclasses will wrap and add dimensionality logic.
-    # ---------------------------------------------------------------------
     def _forward_impl(self, x: torch.Tensor, c: Optional[torch.Tensor]) -> torch.Tensor:
         out = self.conv(x)
-
         if self.activation is not None:
             out = self.activation(out)
 
         if self.use_context and c is not None:
-            ctx = self.context_processor(c)  # (B, n_parts)
+            ctx = self.context_processor(c)
             gamma, beta = self._split_ctx(ctx)
-            out = self._apply_film(out, gamma, beta)
+            out = self._apply_modulation(out, gamma, beta)
 
         return out
-    
+
     @torch.no_grad()
     def infer_context(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Estimate the global context vector `c` from input `x`.
-
-        This method uses the approximation:
-            c ≈ (V @ (W + 1)), where V is the per-channel energy vector
-        and W is the weight matrix of the context processor's Linear layer.
-
-        This only works when:
-        - `context_dim` is set
-        - `ContextProcessor` is a single Linear layer
-        - `linear_bias=False`
-        - `use_bias=False`
-
-        Args:
-            x: Input tensor of shape (B, C, L) for Conv1d or (B, C, H, W) for Conv2d.
-
-        Returns:
-            Estimated context tensor of shape (B, context_dim)
-        """
         if not self.use_context:
             raise RuntimeError("Context is not enabled in this layer.")
-
         processor = self.context_processor.processor
         if not isinstance(processor, nn.Linear):
             raise RuntimeError("ContextProcessor must be a single Linear layer.")
@@ -185,26 +148,12 @@ class _ContextualConvBase(nn.Module):
         if self.activation is not None:
             out = self.activation(out)
 
-        V = self.g_fn(out)  # shape: (B, C)
-
-        # Get weight matrix and add 1
-        W_plus_1 = processor.weight + 1  # shape: (out_dim, context_dim)
-
-        # Compute context as V @ (W_plus_1) — shape: (B, context_dim)
-        context = V @ W_plus_1
-
-        return context
+        V = self.g_fn(out)
+        W_plus_1 = processor.weight + 1
+        return V @ W_plus_1
 
 
 class ContextualConv1d(_ContextualConvBase):
-    r"""1-D convolution with optional FiLM-style global conditioning.
-
-    Works as a drop-in replacement for :class:`torch.nn.Conv1d`.  When a global
-    context vector ``c`` is provided, the layer can predict a per-channel
-    *scale* (``\gamma``), *bias* (``\beta``) or both and apply them to the
-    convolution output, following the FiLM formulation.
-    """
-
     _NDIMS = 1
 
     def __init__(
@@ -219,6 +168,8 @@ class ContextualConv1d(_ContextualConvBase):
         use_scale: bool = False,
         use_bias: bool = True,
         linear_bias: bool = False,
+        g: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
+        scale_mode: Literal["film", "scale"] = "film",
         **conv_kwargs,
     ) -> None:
         conv = nn.Conv1d(in_channels, out_channels, kernel_size, **conv_kwargs)
@@ -230,21 +181,15 @@ class ContextualConv1d(_ContextualConvBase):
             use_scale=use_scale,
             use_bias=use_bias,
             linear_bias=linear_bias,
+            g=g,
+            scale_mode=scale_mode,
         )
 
-    # pyre-ignore[3]: We intentionally match ``nn.Conv1d`` signature (+c).
-    def forward(self, x: torch.Tensor, c: Optional[torch.Tensor] = None) -> torch.Tensor:  # noqa: D401
-        """Apply convolution followed by optional FiLM modulation."""
+    def forward(self, x: torch.Tensor, c: Optional[torch.Tensor] = None) -> torch.Tensor:
         return self._forward_impl(x, c)
 
 
 class ContextualConv2d(_ContextualConvBase):
-    r"""2-D convolution with optional FiLM-style global conditioning.
-
-    Usage is identical to :class:`torch.nn.Conv2d` except for the extra
-    *context* arguments that control scaling and biasing.
-    """
-
     _NDIMS = 2
 
     def __init__(
@@ -259,6 +204,8 @@ class ContextualConv2d(_ContextualConvBase):
         use_scale: bool = False,
         use_bias: bool = True,
         linear_bias: bool = False,
+        g: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
+        scale_mode: Literal["film", "scale"] = "film",
         **conv_kwargs,
     ) -> None:
         conv = nn.Conv2d(in_channels, out_channels, kernel_size, **conv_kwargs)
@@ -270,9 +217,9 @@ class ContextualConv2d(_ContextualConvBase):
             use_scale=use_scale,
             use_bias=use_bias,
             linear_bias=linear_bias,
+            g=g,
+            scale_mode=scale_mode,
         )
 
-    # pyre-ignore[3]
-    def forward(self, x: torch.Tensor, c: Optional[torch.Tensor] = None) -> torch.Tensor:  # noqa: D401
-        """Apply convolution followed by optional FiLM modulation."""
+    def forward(self, x: torch.Tensor, c: Optional[torch.Tensor] = None) -> torch.Tensor:
         return self._forward_impl(x, c)
