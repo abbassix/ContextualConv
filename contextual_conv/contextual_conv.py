@@ -45,11 +45,11 @@ class _ContextualConvBase(nn.Module):
         context_dim: Optional[int] = None,
         h_dim: Optional[int] = None,
         activation: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
-        use_scale: bool = False,
-        use_bias: bool = True,
+        use_scale: bool = True,
+        use_bias: bool = False,
         linear_bias: bool = False,
         g: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
-        scale_mode: Literal["film", "scale"] = "film",
+        scale_mode: Literal["film", "scale"] = "scale",
     ) -> None:
         super().__init__()
 
@@ -138,23 +138,43 @@ class _ContextualConvBase(nn.Module):
 
     @torch.no_grad()
     def infer_context(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Estimate the global context vector `c` from input `x`.
+
+        This only works when:
+        - context is enabled (`context_dim` > 0)
+        - ContextProcessor is a single Linear layer (not MLP)
+        - linear_bias=False
+        - use_bias=False
+
+        Returns:
+            Tensor of shape (B, context_dim)
+        """
         if not self.use_context:
             raise RuntimeError("Context is not enabled in this layer.")
+
         processor = self.context_processor.processor
         if not isinstance(processor, nn.Linear):
             raise RuntimeError("ContextProcessor must be a single Linear layer.")
         if processor.bias is not None and not torch.allclose(processor.bias, torch.zeros_like(processor.bias)):
-            raise RuntimeError("Linear bias must be disabled (bias=False).")
+            raise RuntimeError("ContextProcessor must be created with `linear_bias=False`.")
         if self.use_bias:
-            raise RuntimeError("use_bias must be False for reversibility.")
+            raise RuntimeError("`use_bias` must be False for `infer_context()` to be valid.")
 
         out = self.conv(x)
         if self.activation is not None:
             out = self.activation(out)
 
-        V = self.g_fn(out)
-        W_plus_1 = processor.weight + 1
-        return V @ W_plus_1
+        V = self.g_fn(out)  # shape: (B, C)
+
+        if self.scale_mode == "film":
+            W_eff = processor.weight + 1  # W + 1 to reverse FiLM modulation
+        elif self.scale_mode == "scale":
+            W_eff = processor.weight      # direct scale
+        else:
+            raise RuntimeError(f"Unknown scale_mode: {self.scale_mode}")
+
+        return V @ W_eff
 
 
 class ContextualConv1d(_ContextualConvBase):
