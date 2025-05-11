@@ -1,3 +1,4 @@
+
 # ContextualConv
 
 [![PyPI version](https://img.shields.io/pypi/v/contextual-conv)](https://pypi.org/project/contextual-conv/)
@@ -6,7 +7,7 @@
 [![Coverage](https://img.shields.io/codecov/c/github/abbassix/ContextualConv/main.svg?style=flat)](https://codecov.io/gh/abbassix/ContextualConv)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-> **ContextualConv** – PyTorch convolutional layers with **global context conditioning**: per‑channel **bias**, **scale**, or **FiLM‑style** *scale + bias*.
+> **ContextualConv** – PyTorch convolutional layers with **global context conditioning**: per‑channel **bias**, **scale**, or **modulated FiLM-style scaling**.
 
 ---
 
@@ -25,7 +26,8 @@ conv = ContextualConv2d(
     context_dim=10,   # size of global vector c
     h_dim=64,         # optional MLP hidden dim
     use_scale=True,   # γ(c)
-    use_bias=True     # β(c)
+    use_bias=True,    # β(c)
+    scale_mode="film" # or "scale"
 )
 
 x = torch.randn(8, 16, 32, 32)  # feature map
@@ -36,11 +38,12 @@ out = conv(x, c)  # shape: (8, 32, 32, 32)
 
 ### Modes at a glance
 
-| `use_scale` | `use_bias` | Behaviour |
-|-------------|------------|-----------|
-| `False`     | `True`     | **Contextual bias** (original behaviour) |
-| `True`      | `False`    | **Per‑channel scale** only |
-| `True`      | `True`     | **FiLM** – scale **and** bias |
+| `use_scale` | `use_bias` | `scale_mode` | Behaviour |
+|-------------|------------|--------------|-----------|
+| `False`     | `True`     | –            | **Contextual bias** only |
+| `True`      | `False`    | `"scale"`    | **Scale only**: `out * γ` |
+| `True`      | `True`     | `"film"`     | **FiLM**: `out * (1 + γ) + β` |
+| `True`      | `True`     | `"scale"`    | **Scale + shift**: `out * γ + β` |
 
 If *both* flags are `False`, the constructor raises `ValueError`.
 
@@ -50,11 +53,14 @@ If *both* flags are `False`, the constructor raises `ValueError`.
 
 * ⚙️ **Drop‑in replacement** for `nn.Conv1d` / `nn.Conv2d`  
   → Same arguments + optional context options.
-* 🧠 **Global vector conditioning** via learnable γ(c) and/or β(c).
-* 🪶 **Lightweight** – one small MLP (or single `Linear`) per layer.
-* 🧑‍🔬 **FiLM ready** – reproduce Feature‑wise Linear Modulation with two lines.
-* 🧩 **Modular** – combine with any architecture, works on CPU / GPU.
-* ✅ **Unit‑tested** and documented.
+* 🧠 **Global vector conditioning** via learnable γ(c) and/or β(c)
+* 🔀 **Modulation modes**:
+  * `scale_mode="film"`: `out * (1 + γ)`
+  * `scale_mode="scale"`: `out * γ`
+* 🪶 **Lightweight** – one small MLP (or single `Linear`) per layer
+* 🧑‍🔬 **FiLM ready** – reproduce Feature‑wise Linear Modulation with two lines
+* 🧩 **Modular** – combine with any architecture, works on CPU / GPU
+* ✅ **Unit‑tested** and documented
 
 ---
 
