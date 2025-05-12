@@ -6,6 +6,20 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.5.1] – 2025-05-12
+
+### Added
+- `infer_context(x, return_raw_output=True)` now returns both the inferred context vector and the unmodulated convolutional output.
+- README updated to document raw output support in `.infer_context()`.
+
+### Changed
+- Layer constructors no longer raise `ValueError` if both `use_scale` and `use_bias` are `False` — this is now allowed when no context is provided, enabling plain convolution mode.
+
+### Fixed
+- Constructor logic now correctly distinguishes between context-free and context-conditioned use cases.
+
+---
+
 ## [0.5.0] – 2025-05-11
 
 ### Added
