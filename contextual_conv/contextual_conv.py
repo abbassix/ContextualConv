@@ -53,8 +53,9 @@ class _ContextualConvBase(nn.Module):
     ) -> None:
         super().__init__()
 
-        if not use_scale and not use_bias:
-            raise ValueError("At least one of `use_scale` or `use_bias` must be True.")
+        if context_dim is not None and context_dim > 0:
+            if not use_scale and not use_bias:
+                raise ValueError("If `context_dim` is set, at least one of `use_scale` or `use_bias` must be True.")
 
         self.conv = conv
         self.activation = activation
