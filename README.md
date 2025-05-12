@@ -1,4 +1,3 @@
-
 # ContextualConv
 
 [![PyPI version](https://img.shields.io/pypi/v/contextual-conv)](https://pypi.org/project/contextual-conv/)
@@ -44,8 +43,9 @@ out = conv(x, c)  # shape: (8, 32, 32, 32)
 | `True`      | `False`    | `"scale"`    | **Scale only**: `out * γ` |
 | `True`      | `True`     | `"film"`     | **FiLM**: `out * (1 + γ) + β` |
 | `True`      | `True`     | `"scale"`    | **Scale + shift**: `out * γ + β` |
+| `False`     | `False`    | –            | **Plain convolution** (no modulation) |
 
-If *both* flags are `False`, the constructor raises `ValueError`.
+If `context_dim` is provided, at least one of `use_scale` or `use_bias` must be `True`.
 
 ---
 
@@ -60,6 +60,7 @@ If *both* flags are `False`, the constructor raises `ValueError`.
 * 🪶 **Lightweight** – one small MLP (or single `Linear`) per layer
 * 🧑‍🔬 **FiLM ready** – reproduce Feature‑wise Linear Modulation with two lines
 * 🧩 **Modular** – combine with any architecture, works on CPU / GPU
+* 📤 **Infer context vectors** from unmodulated outputs with `.infer_context()`
 * ✅ **Unit‑tested** and documented
 
 ---
@@ -90,6 +91,24 @@ pip install -e .[dev]
 * Output dims:
   * `out_channels` → bias **or** scale
   * `2 × out_channels` → FiLM (scale + bias)
+
+---
+
+## 🔎 Context inference
+
+You can extract the context vector inferred from the output using:
+
+```python
+context = conv.infer_context(x)
+```
+
+To also get the **unmodulated output** from the convolution layer:
+
+```python
+context, raw_out = conv.infer_context(x, return_raw_output=True)
+```
+
+This is useful when you need both the input’s context and its original unmodulated features.
 
 ---
 
