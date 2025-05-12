@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from typing import Optional, Tuple, Callable, Literal
+from typing import Optional, Tuple, Callable, Literal, Union
 
 __all__ = ["ContextProcessor", "ContextualConv1d", "ContextualConv2d"]
 
