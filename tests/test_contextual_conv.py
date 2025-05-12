@@ -2,8 +2,9 @@
 
 import pytest
 import torch
-from contextual_conv import ContextProcessor, ContextualConv1d, ContextualConv2d
 import torch.nn.functional as F
+import re
+from contextual_conv import ContextProcessor, ContextualConv1d, ContextualConv2d
 
 # -----------------------------------------------------------------------------
 # Utilities
@@ -22,9 +23,13 @@ def make_random_input(dim: int = 2):
 # Validation
 # -----------------------------------------------------------------------------
 
-def test_requires_scale_or_bias():
-    with pytest.raises(ValueError, match="At least one of `use_scale` or `use_bias` must be True."):
-        _ = ContextualConv1d(3, 6, 3, use_scale=False, use_bias=False)
+def test_requires_scale_or_bias_only_if_context_given():
+    # Valid: plain conv with no context
+    _ = ContextualConv1d(3, 6, 3, use_scale=False, use_bias=False)
+
+    # Invalid: context given but both scale and bias are disabled
+    with pytest.raises(ValueError, match="at least one of `use_scale` or `use_bias` must be True", flags=re.IGNORECASE):
+        _ = ContextualConv1d(3, 6, 3, context_dim=5, use_scale=False, use_bias=False)
 
 # -----------------------------------------------------------------------------
 # ContextualConv1d
@@ -127,6 +132,19 @@ def test_infer_context_shape_and_validity():
     )
     context = layer.infer_context(x)
     assert context.shape == (4, 6)
+
+def test_infer_context_with_raw_output():
+    x = torch.randn(4, 3, 64)
+    layer = ContextualConv1d(
+        3, 3, 3, padding=1,
+        context_dim=6,
+        use_scale=True,
+        use_bias=False,
+        linear_bias=False,
+    )
+    context, raw_out = layer.infer_context(x, return_raw_output=True)
+    assert context.shape == (4, 6)
+    assert raw_out.shape == (4, 3, 64)
 
 @pytest.mark.parametrize("setting", [
     {"context_dim": None},
