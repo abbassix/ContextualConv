@@ -138,18 +138,17 @@ class _ContextualConvBase(nn.Module):
         return out
 
     @torch.no_grad()
-    def infer_context(self, x: torch.Tensor) -> torch.Tensor:
+    def infer_context(self, x: torch.Tensor, return_raw_output: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """
         Estimate the global context vector `c` from input `x`.
 
-        This only works when:
-        - context is enabled (`context_dim` > 0)
-        - ContextProcessor is a single Linear layer (not MLP)
-        - linear_bias=False
-        - use_bias=False
+        Args:
+            x (Tensor): Input tensor.
+            return_raw_output (bool): If True, also return the unmodulated output.
 
         Returns:
-            Tensor of shape (B, context_dim)
+            Tensor: Estimated context vector of shape (B, context_dim)
+            Optional[Tensor]: Raw convolutional output (if return_raw_output is True)
         """
         if not self.use_context:
             raise RuntimeError("Context is not enabled in this layer.")
@@ -175,7 +174,9 @@ class _ContextualConvBase(nn.Module):
         else:
             raise RuntimeError(f"Unknown scale_mode: {self.scale_mode}")
 
-        return V @ W_eff
+        context = V @ W_eff
+
+        return (context, out) if return_raw_output else context
 
 
 class ContextualConv1d(_ContextualConvBase):
