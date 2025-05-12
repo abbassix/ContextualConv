@@ -28,7 +28,8 @@ def test_requires_scale_or_bias_only_if_context_given():
     _ = ContextualConv1d(3, 6, 3, use_scale=False, use_bias=False)
 
     # Invalid: context given but both scale and bias are disabled
-    with pytest.raises(ValueError, match="at least one of `use_scale` or `use_bias` must be True", flags=re.IGNORECASE):
+    pattern = re.compile("at least one of `use_scale` or `use_bias` must be True", flags=re.IGNORECASE)
+    with pytest.raises(ValueError, match=pattern):
         _ = ContextualConv1d(3, 6, 3, context_dim=5, use_scale=False, use_bias=False)
 
 # -----------------------------------------------------------------------------
