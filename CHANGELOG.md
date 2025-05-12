@@ -6,6 +6,14 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.5.2] – 2025-05-12
+
+### Fixed
+- Added missing `Union` import in `contextual_conv.py`, which caused test collection to fail in v0.5.1.
+- Fixed `pytest.raises` usage in tests by replacing unsupported `flags=` argument with `re.compile(...)` for case-insensitive matching.
+
+---
+
 ## [0.5.1] – 2025-05-12
 
 ### Added
