@@ -184,9 +184,6 @@ class ContextualConv1d(_ContextualConvBase):
 
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int,
         *,
         activation: Optional[Callable] = None,
         context_dim: Optional[int] = None,
@@ -198,7 +195,7 @@ class ContextualConv1d(_ContextualConvBase):
         scale_mode: Literal["film", "scale"] = "film",
         **conv_kwargs,
     ) -> None:
-        conv = nn.Conv1d(in_channels, out_channels, kernel_size, **conv_kwargs)
+        conv = nn.Conv1d(**conv_kwargs)
         super().__init__(
             conv,
             activation=activation,
@@ -220,9 +217,6 @@ class ContextualConv2d(_ContextualConvBase):
 
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int,
         *,
         activation: Optional[Callable] = None,
         context_dim: Optional[int] = None,
@@ -234,7 +228,7 @@ class ContextualConv2d(_ContextualConvBase):
         scale_mode: Literal["film", "scale"] = "film",
         **conv_kwargs,
     ) -> None:
-        conv = nn.Conv2d(in_channels, out_channels, kernel_size, **conv_kwargs)
+        conv = nn.Conv2d(**conv_kwargs)
         super().__init__(
             conv,
             activation=activation,
