@@ -164,6 +164,11 @@ def test_infer_context_raises_for_invalid_head():
         def __init__(self):
             super().__init__()
             self.processor = nn.Sequential(nn.Linear(5, 16), nn.ReLU())
+
+        @property
+        def last_linear(self):
+            return nn.ReLU()  # Not a Linear, triggers the correct error
+
     layer.gamma_proc = FakeGamma()
 
     with pytest.raises(RuntimeError, match="Last layer of γ-head must be nn.Linear"):
@@ -180,6 +185,11 @@ def test_infer_context_raises_for_invalid_head():
         def __init__(self):
             super().__init__()
             self.processor = nn.Sequential(nn.Linear(5, 16), nn.ReLU())
+
+        @property
+        def last_linear(self):
+            return nn.ReLU()  # Not a Linear, triggers the correct error
+
     layer.beta_proc = FakeBeta()
 
     with pytest.raises(RuntimeError, match="Last layer of β-head must be nn.Linear"):
