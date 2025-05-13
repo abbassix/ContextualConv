@@ -68,7 +68,7 @@ If `context_dim` is provided, at least one of `use_scale` or `use_bias` must be 
 ## 📦 Installation
 
 ```bash
-pip install contextual-conv  # version 0.5.3 on PyPI
+pip install contextual-conv  # version 0.6.0 on PyPI
 ```
 
 Or install from source:
