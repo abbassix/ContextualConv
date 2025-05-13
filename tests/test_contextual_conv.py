@@ -24,10 +24,8 @@ def make_random_input(dim: int = 2):
 # -----------------------------------------------------------------------------
 
 def test_requires_scale_or_bias_only_if_context_given():
-    # Valid: plain conv with no context
-    _ = ContextualConv1d(3, 6, 3, use_scale=False, use_bias=False)
+    _ = ContextualConv1d(3, 6, 3, use_scale=False, use_bias=False)  # OK
 
-    # Invalid: context given but both scale and bias are disabled
     pattern = re.compile("at least one of `use_scale` or `use_bias` must be True", flags=re.IGNORECASE)
     with pytest.raises(ValueError, match=pattern):
         _ = ContextualConv1d(3, 6, 3, context_dim=5, use_scale=False, use_bias=False)
@@ -56,7 +54,6 @@ def test_conv1d_output_shape_and_modes(use_scale, use_bias, scale_mode):
     )
     y = layer(x, c)
     assert y.shape == (4, 6, 64)
-
 
 def test_conv1d_behaves_like_conv1d_without_context():
     x, _ = make_random_input(dim=1)
@@ -122,13 +119,18 @@ def test_context_processor_output_shape(h_dim):
 # infer_context
 # -----------------------------------------------------------------------------
 
-def test_infer_context_shape_and_validity():
+@pytest.mark.parametrize("use_scale, use_bias", [
+    (True, False),
+    (True, True),
+    (False, True),
+])
+def test_infer_context_shape_and_validity(use_scale, use_bias):
     x = torch.randn(4, 3, 64)
     layer = ContextualConv1d(
         3, 3, 3, padding=1,
         context_dim=6,
-        use_scale=True,
-        use_bias=False,
+        use_scale=use_scale,
+        use_bias=use_bias,
         linear_bias=False,
     )
     context = layer.infer_context(x)
@@ -140,38 +142,40 @@ def test_infer_context_with_raw_output():
         3, 3, 3, padding=1,
         context_dim=6,
         use_scale=True,
-        use_bias=False,
+        use_bias=True,
         linear_bias=False,
     )
     context, raw_out = layer.infer_context(x, return_raw_output=True)
     assert context.shape == (4, 6)
     assert raw_out.shape == (4, 3, 64)
 
-@pytest.mark.parametrize("setting", [
-    {"context_dim": None},
-    {"use_bias": True},
-    {"h_dim": 16},
-    {"linear_bias": True},
-])
-def test_infer_context_raises(setting):
+def test_infer_context_raises_for_invalid_head():
     x = torch.randn(4, 3, 64)
-    kwargs = dict(
-        in_channels=3,
-        out_channels=3,
-        kernel_size=3,
-        padding=1,
+
+    # Replace gamma_proc with a sequential ending in non-linear
+    layer = ContextualConv1d(
+        3, 3, 3, padding=1,
+        context_dim=5,
         use_scale=True,
         use_bias=False,
-        context_dim=5,
-        h_dim=None,
-        linear_bias=False,
     )
-    kwargs.update(setting)
-    layer = ContextualConv1d(**kwargs)
-    if setting.get("linear_bias", False):
-        if isinstance(layer.context_processor.processor, torch.nn.Linear):
-            layer.context_processor.processor.bias.data.fill_(1.0)
-    with pytest.raises(RuntimeError):
+    layer.gamma_proc.processor = torch.nn.Sequential(
+        torch.nn.Linear(5, 16), torch.nn.ReLU()
+    )
+    with pytest.raises(RuntimeError, match="Last layer of γ-head must be nn.Linear"):
+        _ = layer.infer_context(x)
+
+    # Replace beta_proc if used
+    layer = ContextualConv1d(
+        3, 3, 3, padding=1,
+        context_dim=5,
+        use_scale=False,
+        use_bias=True,
+    )
+    layer.beta_proc.processor = torch.nn.Sequential(
+        torch.nn.Linear(5, 16), torch.nn.ReLU()
+    )
+    with pytest.raises(RuntimeError, match="Last layer of β-head must be nn.Linear"):
         _ = layer.infer_context(x)
 
 @pytest.mark.parametrize("scale_mode", ["film", "scale"])
@@ -179,7 +183,6 @@ def test_scale_mode_identity_initialization(scale_mode):
     x = torch.randn(4, 3, 64)
 
     if scale_mode == "scale":
-        # one-hot context: each row has a single 1
         indices = torch.randint(0, 6, (4,))
         c = F.one_hot(indices, num_classes=6).float()
     else:
@@ -199,7 +202,6 @@ def test_scale_mode_identity_initialization(scale_mode):
 
     out_plain = layer(x, None)
     out_modulated = layer(x, c)
-
     assert torch.allclose(out_plain, out_modulated, atol=1e-3)
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required for timing test")
