@@ -184,6 +184,9 @@ class ContextualConv1d(_ContextualConvBase):
 
     def __init__(
         self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
         *,
         activation: Optional[Callable] = None,
         context_dim: Optional[int] = None,
@@ -195,7 +198,10 @@ class ContextualConv1d(_ContextualConvBase):
         scale_mode: Literal["film", "scale"] = "film",
         **conv_kwargs,
     ) -> None:
-        conv = nn.Conv1d(**conv_kwargs)
+        in_channels = conv_kwargs.pop("in_channels", in_channels)
+        out_channels = conv_kwargs.pop("out_channels", out_channels)
+        kernel_size = conv_kwargs.pop("kernel_size", kernel_size)
+        conv = nn.Conv1d(in_channels, out_channels, kernel_size, **conv_kwargs)
         super().__init__(
             conv,
             activation=activation,
@@ -217,6 +223,9 @@ class ContextualConv2d(_ContextualConvBase):
 
     def __init__(
         self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: Union[int, Tuple[int, int]],
         *,
         activation: Optional[Callable] = None,
         context_dim: Optional[int] = None,
@@ -225,9 +234,12 @@ class ContextualConv2d(_ContextualConvBase):
         use_bias: bool = True,
         linear_bias: bool = False,
         g: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
-        scale_mode: Literal["film", "scale"] = "film",
+        scale_mode: Literal["film", "scale"] = "scale",
         **conv_kwargs,
     ) -> None:
+        in_channels = conv_kwargs.pop("in_channels", in_channels)
+        out_channels = conv_kwargs.pop("out_channels", out_channels)
+        kernel_size = conv_kwargs.pop("kernel_size", kernel_size)
         conv = nn.Conv2d(**conv_kwargs)
         super().__init__(
             conv,
