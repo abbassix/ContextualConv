@@ -57,8 +57,8 @@ class _ContextualConvBase(nn.Module):
     or pure scaling modulation.
 
     Two independent heads are created:
-        γ-head → per-channel scale
-        β-head → per-channel shift
+        gamma-head → per-channel scale
+        beta-head → per-channel shift
     """
 
     _NDIMS: int  # spatial rank (1 for Conv1d, 2 for Conv2d); set in subclasses
@@ -132,7 +132,7 @@ class _ContextualConvBase(nn.Module):
         gamma: Optional[torch.Tensor],
         beta: Optional[torch.Tensor],
     ) -> torch.Tensor:
-        """Apply (1+γ)·x or γ·x, then add β, with correct broadcasting."""
+        """Apply (1+gamma)·x or gamma·x, then add beta, with correct broadcasting."""
         if gamma is not None:
             gamma_exp = self._unsqueeze_to_match(gamma)
             feats = feats * (1.0 + gamma_exp) if self.scale_mode == "film" else feats * gamma_exp
@@ -141,7 +141,7 @@ class _ContextualConvBase(nn.Module):
         return feats
 
     def _init_gamma_weights(self) -> None:
-        """Identity init so un-trained γ leaves the network unchanged."""
+        """Identity init so un-trained gamma leaves the network unchanged."""
         last = self.gamma_proc.last_linear
         if self.scale_mode == "film":
             nn.init.zeros_(last.weight)
@@ -170,13 +170,24 @@ class _ContextualConvBase(nn.Module):
         feats = self.conv(x)
         if self.activation is not None:
             feats = self.activation(feats)
-        g = self.g_fn(feats)  # (B, C)  non-negative sample weights
-        if self.use_context and c is not None:
-            gamma = self.gamma_proc(c) if self.use_scale else None
-            beta = self.beta_proc(c) if self.use_bias else None
-            feats = self._apply_modulation(g, gamma, beta)
 
-        return feats
+        g = self.g_fn(feats)  # shape: (B, C)
+
+        if self.use_context and c is not None:
+            gamma = self.gamma_proc(c) if self.use_scale else None  # shape: (B, C)
+            beta = self.beta_proc(c) if self.use_bias else None     # shape: (B, C)
+
+            if self.scale_mode == "film":
+                if gamma is not None:
+                    g = g * (1.0 + gamma)
+            else:
+                if gamma is not None:
+                    g = g * gamma
+
+            if beta is not None:
+                g = g + beta
+
+        return g
 
     # --------------------------- analytic inference --------------------------#
     @torch.no_grad()
@@ -205,7 +216,7 @@ class _ContextualConvBase(nn.Module):
 
         v = self.g_fn(feats)  # (B, C)  non-negative sample weights
 
-        # 2) Accumulate contributions from γ and β heads
+        # 2) Accumulate contributions from gamma and beta heads
         # Infer context_dim from whichever head is available
         if self.use_scale and hasattr(self.gamma_proc, "last_linear"):
             context_dim = self.gamma_proc.last_linear.in_features
@@ -216,21 +227,21 @@ class _ContextualConvBase(nn.Module):
 
         ctx_scores = torch.zeros(v.size(0), context_dim, device=v.device)
 
-        # ---- γ-head --------------------------------------------------------- #
+        # ---- gamma-head --------------------------------------------------------- #
         if self.use_scale:
             g_last = self.gamma_proc.last_linear
-            Wγ = g_last.weight  # (out_channels, context_dim)
+            W_gamma = g_last.weight  # (out_channels, context_dim)
             if self.scale_mode == "film":
-                Wγ = Wγ + 1.0
-            ctx_scores += v @ Wγ
+                W_gamma = W_gamma + 1.0
+            ctx_scores += v @ W_gamma
             if g_last.bias is not None:
                 ctx_scores += (v @ g_last.bias).unsqueeze(-1)
 
-        # ---- β-head --------------------------------------------------------- #
+        # ---- beta-head --------------------------------------------------------- #
         if self.use_bias:
             b_last = self.beta_proc.last_linear
-            Wβ = b_last.weight  # (out_channels, context_dim)
-            ctx_scores += v @ Wβ
+            W_beta = b_last.weight  # (out_channels, context_dim)
+            ctx_scores += v @ W_beta
             if b_last.bias is not None:
                 ctx_scores += (v @ b_last.bias).unsqueeze(-1)
 
