@@ -1,8 +1,4 @@
 # contextual_conv.py
-#
-# Fully refactored implementation that uses two independent
-# networks—one for scale (γ) and one for shift (β)—so that both can be
-# handled cleanly in `infer_context`.
 
 import torch
 import torch.nn as nn
@@ -169,6 +165,19 @@ class _ContextualConvBase(nn.Module):
 
         return feats
 
+    # ---------------------------- wieghted goodness ---------------------------#
+    def wieghted_goodness(self, x: torch.Tensor, c: Optional[torch.Tensor]) -> torch.Tensor:
+        feats = self.conv(x)
+        if self.activation is not None:
+            feats = self.activation(feats)
+        g = self.g_fn(feats)  # (B, C)  non-negative sample weights
+        if self.use_context and c is not None:
+            gamma = self.gamma_proc(c) if self.use_scale else None
+            beta = self.beta_proc(c) if self.use_bias else None
+            feats = self._apply_modulation(g, gamma, beta)
+
+        return feats
+
     # --------------------------- analytic inference --------------------------#
     @torch.no_grad()
     def infer_context(
@@ -270,6 +279,9 @@ class ContextualConv1d(_ContextualConvBase):
     def forward(self, x: torch.Tensor, c: Optional[torch.Tensor] = None) -> torch.Tensor:
         return self._forward_impl(x, c)
 
+    def wieghted_goodness(self, x: torch.Tensor, c: Optional[torch.Tensor]) -> torch.Tensor:
+        return self.wieghted_goodness(x, c)
+
 
 class ContextualConv2d(_ContextualConvBase):
     _NDIMS = 2
@@ -305,3 +317,6 @@ class ContextualConv2d(_ContextualConvBase):
 
     def forward(self, x: torch.Tensor, c: Optional[torch.Tensor] = None) -> torch.Tensor:
         return self._forward_impl(x, c)
+    
+    def wieghted_goodness(self, x: torch.Tensor, c: Optional[torch.Tensor]) -> torch.Tensor:
+        return self.wieghted_goodness(x, c)
