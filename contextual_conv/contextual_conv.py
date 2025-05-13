@@ -197,8 +197,15 @@ class _ContextualConvBase(nn.Module):
         v = self.g_fn(feats)  # (B, C)  non-negative sample weights
 
         # 2) Accumulate contributions from γ and β heads
-        ctx_scores: torch.Tensor
-        ctx_scores = torch.zeros(v.size(0), self.gamma_proc.last_linear.in_features, device=v.device)
+        # Infer context_dim from whichever head is available
+        if self.use_scale and hasattr(self.gamma_proc, "last_linear"):
+            context_dim = self.gamma_proc.last_linear.in_features
+        elif self.use_bias and hasattr(self.beta_proc, "last_linear"):
+            context_dim = self.beta_proc.last_linear.in_features
+        else:
+            raise RuntimeError("At least one of use_scale or use_bias must be True, and head must end in nn.Linear.")
+
+        ctx_scores = torch.zeros(v.size(0), context_dim, device=v.device)
 
         # ---- γ-head --------------------------------------------------------- #
         if self.use_scale:
