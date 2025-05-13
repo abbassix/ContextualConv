@@ -116,9 +116,9 @@ class _ContextualConvBase(nn.Module):
     # -------------------------------- utils ----------------------------------#
     def _default_g_fn(self, feats: torch.Tensor) -> torch.Tensor:
         """Non-negative per-channel weights   v_b = mean_{spatial}(out²)."""
-        squared = feats.pow(2)
+        # squared = feats.pow(2)
         dims = list(range(2, 2 + self._NDIMS))
-        return squared.mean(dim=dims)
+        return feats.mean(dim=dims)
 
     def _unsqueeze_to_match(self, x: torch.Tensor) -> torch.Tensor:
         """Add NDIMS trailing singleton dims so x can broadcast across feature maps."""
