@@ -166,7 +166,7 @@ class _ContextualConvBase(nn.Module):
         return feats
 
     # ---------------------------- wieghted goodness ---------------------------#
-    def wieghted_goodness(self, x: torch.Tensor, c: Optional[torch.Tensor]) -> torch.Tensor:
+    def weighted_goodness(self, x: torch.Tensor, c: Optional[torch.Tensor]) -> torch.Tensor:
         feats = self.conv(x)
         if self.activation is not None:
             feats = self.activation(feats)
@@ -279,8 +279,8 @@ class ContextualConv1d(_ContextualConvBase):
     def forward(self, x: torch.Tensor, c: Optional[torch.Tensor] = None) -> torch.Tensor:
         return self._forward_impl(x, c)
 
-    def wieghted_goodness(self, x: torch.Tensor, c: Optional[torch.Tensor]) -> torch.Tensor:
-        return super().wieghted_goodness(x, c)
+    def weighted_goodness(self, x: torch.Tensor, c: Optional[torch.Tensor]) -> torch.Tensor:
+        return super().weighted_goodness(x, c)
 
 
 class ContextualConv2d(_ContextualConvBase):
@@ -318,5 +318,5 @@ class ContextualConv2d(_ContextualConvBase):
     def forward(self, x: torch.Tensor, c: Optional[torch.Tensor] = None) -> torch.Tensor:
         return self._forward_impl(x, c)
     
-    def wieghted_goodness(self, x: torch.Tensor, c: Optional[torch.Tensor]) -> torch.Tensor:
-        return super().wieghted_goodness(x, c)
+    def weighted_goodness(self, x: torch.Tensor, c: Optional[torch.Tensor]) -> torch.Tensor:
+        return super().weighted_goodness(x, c)
