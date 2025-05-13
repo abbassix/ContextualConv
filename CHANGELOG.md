@@ -6,6 +6,17 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+---
+
+## [0.5.3] – 2025-05-13
+
+### Changed
+- Refactored `ContextualConv1d` and `ContextualConv2d` constructors to extract `in_channels`, `out_channels`, and `kernel_size` from `**conv_kwargs` using `pop()` with fallback.
+- Prevents unintended argument conflicts and allows flexible config-based instantiation.
+- Improves safety and clarity by avoiding accidental forwarding of non-convolutional arguments (e.g., `activation`) to `nn.Conv1d` or `nn.Conv2d`.
+
+---
+
 ## [0.5.2] – 2025-05-12
 
 ### Fixed
