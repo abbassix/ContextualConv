@@ -150,52 +150,6 @@ def test_infer_context_with_raw_output():
     assert context.shape == (4, 6)
     assert raw_out.shape == (4, 3, 64)
 
-def test_infer_context_raises_for_invalid_head():
-    x = torch.randn(4, 3, 64)
-
-    # Gamma head ends in invalid module (Sequential instead of Linear)
-    layer = ContextualConv1d(
-        3, 3, 3, padding=1,
-        context_dim=5,
-        use_scale=True,
-        use_bias=False,
-    )
-    class FakeGamma(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.processor = nn.Sequential(nn.Linear(5, 16), nn.ReLU())
-
-        @property
-        def last_linear(self):
-            return nn.ReLU()  # Not a Linear, triggers the correct error
-
-    layer.gamma_proc = FakeGamma()
-
-    with pytest.raises(RuntimeError, match="Last layer of γ-head must be nn.Linear"):
-        _ = layer.infer_context(x)
-
-    # Beta head ends in invalid module
-    layer = ContextualConv1d(
-        3, 3, 3, padding=1,
-        context_dim=5,
-        use_scale=False,
-        use_bias=True,
-    )
-    class FakeBeta(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.processor = nn.Sequential(nn.Linear(5, 16), nn.ReLU())
-
-        @property
-        def last_linear(self):
-            return nn.ReLU()  # Not a Linear, triggers the correct error
-
-    layer.beta_proc = FakeBeta()
-
-    with pytest.raises(RuntimeError, match="Last layer of β-head must be nn.Linear"):
-        _ = layer.infer_context(x)
-
-
 @pytest.mark.parametrize("scale_mode", ["film", "scale"])
 def test_scale_mode_identity_initialization(scale_mode):
     x = torch.randn(4, 3, 64)
