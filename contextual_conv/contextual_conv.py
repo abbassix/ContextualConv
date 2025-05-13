@@ -240,7 +240,7 @@ class ContextualConv2d(_ContextualConvBase):
         in_channels = conv_kwargs.pop("in_channels", in_channels)
         out_channels = conv_kwargs.pop("out_channels", out_channels)
         kernel_size = conv_kwargs.pop("kernel_size", kernel_size)
-        conv = nn.Conv2d(**conv_kwargs)
+        conv = nn.Conv2d(in_channels, out_channels, kernel_size, **conv_kwargs)
         super().__init__(
             conv,
             activation=activation,
